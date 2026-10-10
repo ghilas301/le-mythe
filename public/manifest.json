@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "The Eternal Push - Sisyphus Game",
+  "short_name": "Sisyphus",
+  "description": "An absurdist physics browser game inspired by the Myth of Sisyphus and Albert Camus.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121110",
+  "theme_color": "#121110",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["games", "entertainment"]
+}

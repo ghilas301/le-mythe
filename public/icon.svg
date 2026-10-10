@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#121110" rx="96"/>
+  <!-- Decorative border ring -->
+  <circle cx="256" cy="256" r="230" fill="none" stroke="#3D352B" stroke-width="4"/>
+  <circle cx="256" cy="256" r="218" fill="none" stroke="#B45309" stroke-width="2" stroke-dasharray="6,6"/>
+
+  <!-- Mountain Slope -->
+  <path d="M 40 430 L 472 230 L 472 472 L 40 472 Z" fill="#1E1B17"/>
+  <path d="M 40 430 L 472 230" stroke="#786B5A" stroke-width="6"/>
+
+  <!-- Silhouette of Sisyphus -->
+  <!-- Legs -->
+  <path d="M 180 370 L 195 320 L 225 300" stroke="#E8E2D8" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <path d="M 230 350 L 250 315 L 225 300" stroke="#E8E2D8" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <!-- Torso & Head -->
+  <path d="M 225 300 L 285 240" stroke="#E8E2D8" stroke-width="20" stroke-linecap="round" fill="none"/>
+  <circle cx="295" cy="230" r="18" fill="#E8E2D8"/>
+  <!-- Arms pushing -->
+  <path d="M 265 260 L 315 250 L 335 245" stroke="#E8E2D8" stroke-width="12" stroke-linecap="round" fill="none"/>
+
+  <!-- The Boulder -->
+  <circle cx="370" cy="210" r="65" fill="#3A332B" stroke="#B45309" stroke-width="6"/>
+  <!-- Boulder fissures -->
+  <path d="M 345 190 Q 370 215 395 200" stroke="#E8E2D8" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <path d="M 360 235 Q 380 220 375 255" stroke="#E8E2D8" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.6"/>
+
+  <!-- Dust particles -->
+  <circle cx="165" cy="380" r="5" fill="#8C7E6C"/>
+  <circle cx="150" cy="390" r="7" fill="#8C7E6C"/>
+  <circle cx="140" cy="375" r="4" fill="#8C7E6C"/>
+</svg>
