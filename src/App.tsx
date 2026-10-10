@@ -11,8 +11,6 @@ import { SisyphusCanvas } from './components/SisyphusCanvas';
 import { GameHUD } from './components/GameHUD';
 import { GameOverModal } from './components/GameOverModal';
 import { ShareCardModal } from './components/ShareCardModal';
-import { ChecklistSection } from './components/ChecklistSection';
-import { MonetizationSection } from './components/MonetizationSection';
 import { EditorialSections } from './components/EditorialSections';
 import { DownloadModal } from './components/DownloadModal';
 import { Volume2, VolumeX, Globe, Shield, Sparkles, Download } from 'lucide-react';
@@ -427,7 +425,7 @@ export default function App() {
           </span>
         </div>
 
-        {/* Navigation jump pills for deep editorial content */}
+        {/* Navigation links for story & rules */}
         <nav aria-label="Page Sections" className="flex flex-wrap items-center justify-center gap-4 text-xs text-[#9E9383] mt-8 pt-4 border-t border-[#221D17]">
           <a href="#how-to-play" className="hover:text-amber-400 transition-colors">{t.navHowToPlay}</a>
           <span>·</span>
@@ -435,19 +433,11 @@ export default function App() {
           <span>·</span>
           <a href="#why" className="hover:text-amber-400 transition-colors">{t.navWhy}</a>
           <span>·</span>
-          <a href="#checklist" className="hover:text-amber-400 transition-colors">{t.navChecklist}</a>
-          <span>·</span>
-          <a href="#monetization" className="hover:text-amber-400 transition-colors">{t.navMonetization}</a>
+          <a href="#faq" className="hover:text-amber-400 transition-colors">{t.faqTitle}</a>
         </nav>
 
         {/* 3. Deep Editorial Sections (SEO & Philosophy) */}
         <EditorialSections t={t} />
-
-        {/* 4. Production Checklist (17 items, Section 10) */}
-        <ChecklistSection t={t} lang={lang} />
-
-        {/* 5. Monetization Strategy & Revenue Architecture (Section 5) */}
-        <MonetizationSection t={t} />
 
       </main>
 

@@ -18,9 +18,7 @@ export const EditorialSections: React.FC<EditorialSectionsProps> = ({ t }) => {
 
   const faqItems = [
     { q: t.faqQ1, a: t.faqA1 },
-    { q: t.faqQ2, a: t.faqA2 },
-    { q: t.faqQ3, a: t.faqA3 },
-    { q: t.faqQ4, a: t.faqA4 }
+    { q: t.faqQ2, a: t.faqA2 }
   ];
 
   return (
