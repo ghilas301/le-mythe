@@ -2,6 +2,23 @@ export type Language = 'en' | 'fr';
 
 export type GameStatus = 'IDLE' | 'PUSHING' | 'SLIPPING' | 'CRASHING' | 'GAME_OVER';
 
+export type Season = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER';
+
+export interface SeasonConfig {
+  season: Season;
+  nameFr: string;
+  nameEn: string;
+  icon: string;
+  terrainEffectFr: string;
+  terrainEffectEn: string;
+  pushSpeedMod: number;
+  slipGravityMod: number;
+  graceWindowMs: number;
+  windResistance: number;
+  particleType: 'PETALS' | 'HEAT_DUST' | 'AUTUMN_LEAVES' | 'SNOWFLAKES';
+  groundColorTint: string;
+}
+
 export interface GameStats {
   currentDistance: number; // in meters
   currentAltitude: number; // in meters

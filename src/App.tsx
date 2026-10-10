@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { GameStatus, GameStats, RunSummary, Language, AdSimulationConfig } from './types/game';
+import { getSeasonForAttempt } from './services/seasons';
 import { translations, getAbsurdRemark } from './services/i18n';
 import { soundEngine } from './services/audio';
 import { SisyphusCanvas } from './components/SisyphusCanvas';
@@ -13,7 +14,7 @@ import { GameOverModal } from './components/GameOverModal';
 import { ShareCardModal } from './components/ShareCardModal';
 import { EditorialSections } from './components/EditorialSections';
 import { DownloadModal } from './components/DownloadModal';
-import { Volume2, VolumeX, Globe, Shield, Sparkles, Download } from 'lucide-react';
+import { Volume2, VolumeX, Globe, Shield, Sparkles, Download, Music } from 'lucide-react';
 
 const TOLERANCE_WINDOW_MS = 950; // ~0.95 seconds grace before gravity reclaims boulder
 
@@ -31,6 +32,7 @@ export default function App() {
   });
 
   const [isMuted, setIsMuted] = useState<boolean>(() => soundEngine.isMuted);
+  const [isMusicOn, setIsMusicOn] = useState<boolean>(() => soundEngine.musicEnabled);
   const [showPrivacy, setShowPrivacy] = useState<boolean>(false);
   const [showDownloadModal, setShowDownloadModal] = useState<boolean>(false);
   const [activeCertificate, setActiveCertificate] = useState<RunSummary | null>(null);
@@ -79,6 +81,9 @@ export default function App() {
 
   const t = translations[lang];
 
+  // Active Season Configuration (changes terrain friction, weather squalls and tree visuals)
+  const seasonConfig = getSeasonForAttempt(stats.totalGamesPlayed, currentDistance);
+
   // Save Stats Helper
   const persistStats = useCallback((updated: GameStats) => {
     setStats(updated);
@@ -104,6 +109,12 @@ export default function App() {
   const handleToggleSound = () => {
     const muted = soundEngine.toggleMute();
     setIsMuted(muted);
+  };
+
+  // Music Toggle Helper
+  const handleToggleMusic = () => {
+    const on = soundEngine.toggleMusic();
+    setIsMusicOn(on);
   };
 
   // Refs for animation frame loop
@@ -176,6 +187,11 @@ export default function App() {
   const handlePushStart = useCallback(() => {
     if (statusRef.current === 'CRASHING' || statusRef.current === 'GAME_OVER') return;
 
+    // Start ambient score upon player interaction if enabled
+    if (soundEngine.musicEnabled && !soundEngine.isMuted) {
+      soundEngine.startAmbientMusic();
+    }
+
     if (!isPushingRef.current) {
       isPushingRef.current = true;
       setIsPushing(true);
@@ -246,13 +262,13 @@ export default function App() {
         setElapsedTime(timeRef.current);
 
         if (isPushingRef.current) {
-          // Pushing forward at ~4.2 m/s
-          const speed = 4.2;
+          // Pushing forward (affected by seasonal wind resistance and terrain friction)
+          const speed = 4.2 * seasonConfig.pushSpeedMod;
           distanceRef.current += speed * dt;
           setCurrentDistance(distanceRef.current);
 
-          // Replenish grace
-          graceRef.current = Math.min(TOLERANCE_WINDOW_MS, graceRef.current + dt * 1500);
+          // Replenish grace (window depends on seasonal grip)
+          graceRef.current = Math.min(seasonConfig.graceWindowMs, graceRef.current + dt * 1500);
           setToleranceRemainingMs(graceRef.current);
 
           if (statusRef.current === 'SLIPPING') {
@@ -272,8 +288,9 @@ export default function App() {
               soundEngine.playSlipWarning();
             }
 
-            // Gravity pulling back
-            distanceRef.current -= 6.5 * dt;
+            // Gravity pulling back (aggravated by slippery verglas / mud)
+            const gravitySpeed = 6.5 * seasonConfig.slipGravityMod;
+            distanceRef.current -= gravitySpeed * dt;
             setCurrentDistance(Math.max(0, distanceRef.current));
 
             // If stone rolls back significantly or reaches 0, catastrophic crash!
@@ -306,13 +323,13 @@ export default function App() {
     timeRef.current = 0;
     setPushCount(0);
     pushCountRef.current = 0;
-    graceRef.current = TOLERANCE_WINDOW_MS;
-    setToleranceRemainingMs(TOLERANCE_WINDOW_MS);
+    graceRef.current = seasonConfig.graceWindowMs;
+    setToleranceRemainingMs(seasonConfig.graceWindowMs);
     setLastSummary(null);
     soundEngine.playClick();
   };
 
-  const toleranceRatio = Math.max(0, Math.min(1, toleranceRemainingMs / TOLERANCE_WINDOW_MS));
+  const toleranceRatio = Math.max(0, Math.min(1, toleranceRemainingMs / seasonConfig.graceWindowMs));
 
   return (
     <div className="min-h-screen bg-[#121110] text-[#E8E4DF] flex flex-col items-center">
@@ -344,6 +361,21 @@ export default function App() {
           >
             <Download className="w-3.5 h-3.5 text-amber-200" />
             <span>{t.downloadAction}</span>
+          </button>
+
+          {/* Ambient Music Toggle */}
+          <button
+            type="button"
+            onClick={handleToggleMusic}
+            className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+              isMusicOn && !isMuted
+                ? 'bg-amber-950/70 border-amber-500/60 text-amber-300'
+                : 'bg-[#1B1815] border-[#342D24] text-[#6E6455] hover:text-[#A69B8B]'
+            }`}
+            title={isMusicOn ? 'Musique contemplative : Active' : 'Musique contemplative : Muette'}
+            aria-label="Musique contemplative"
+          >
+            <Music className="w-4 h-4" />
           </button>
 
           {/* Audio Mute Button */}
@@ -392,7 +424,10 @@ export default function App() {
           status={status}
           isPushing={isPushing}
           distance={currentDistance}
+          runTime={elapsedTime}
+          totalAttempts={stats.totalGamesPlayed}
           toleranceRatio={toleranceRatio}
+          lang={lang}
           onPushStart={handlePushStart}
           onPushEnd={handlePushEnd}
         />

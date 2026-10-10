@@ -1,12 +1,19 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { GameStatus } from '../types/game';
+import { GameStatus, Language, Season, SeasonConfig } from '../types/game';
 import { soundEngine } from '../services/audio';
+import { BirdSystem, ForegroundFoliage, getAtmosphereForCycle } from '../services/atmosphere';
+import { monologueEngine } from '../services/monologue';
 
 interface SisyphusCanvasProps {
   status: GameStatus;
   isPushing: boolean;
   distance: number;
-  toleranceRatio: number; // 1.0 (full) to 0.0 (danger)
+  runTime: number;
+  totalAttempts: number;
+  toleranceRatio: number;
+  season: Season;
+  seasonConfig: SeasonConfig;
+  lang: Language;
   onPushStart: () => void;
   onPushEnd: () => void;
 }
@@ -23,11 +30,24 @@ interface Particle {
   maxLife: number;
 }
 
+interface Star {
+  x: number;
+  y: number;
+  size: number;
+  alpha: number;
+  twinkleSpeed: number;
+}
+
 export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
   status,
   isPushing,
   distance,
+  runTime,
+  totalAttempts,
   toleranceRatio,
+  season,
+  seasonConfig,
+  lang,
   onPushStart,
   onPushEnd
 }) => {
@@ -39,9 +59,29 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
   const lastTimeRef = useRef<number>(performance.now());
   const soundThrottleRef = useRef<number>(0);
 
+  // Atmospheric Systems
+  const birdSystemRef = useRef<BirdSystem>(new BirdSystem());
+  const foregroundFoliageRef = useRef<ForegroundFoliage>(new ForegroundFoliage());
+  const starsRef = useRef<Star[]>([]);
+
   // Slope geometry constants
   const SLOPE_ANGLE = 0.44; // ~25.2 degrees in radians
   const BOULDER_RADIUS = 46;
+
+  // Initialize stars once
+  useEffect(() => {
+    const stars: Star[] = [];
+    for (let i = 0; i < 45; i++) {
+      stars.push({
+        x: Math.random(),
+        y: Math.random() * 0.55,
+        size: 0.8 + Math.random() * 1.5,
+        alpha: 0.3 + Math.random() * 0.7,
+        twinkleSpeed: 0.02 + Math.random() * 0.04
+      });
+    }
+    starsRef.current = stars;
+  }, []);
 
   // Add dust particles
   const spawnDust = useCallback((x: number, y: number, count = 3, isSevere = false) => {
@@ -75,11 +115,16 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       const dt = Math.min((now - lastTimeRef.current) / 1000, 0.1);
       lastTimeRef.current = now;
 
-      // Ensure crisp high-DPI rendering
       const width = canvas.width;
       const height = canvas.height;
 
-      // Update sound scrape throttling
+      // Update atmospheric state
+      const atmosphere = getAtmosphereForCycle(totalAttempts, runTime);
+
+      // Check interior thoughts
+      monologueEngine.checkTriggers(distance, status, lang, dt);
+
+      // Update sound scrape throttling and wind
       if (isPushing && status === 'PUSHING') {
         soundThrottleRef.current += dt;
         if (soundThrottleRef.current > 0.16) {
@@ -90,6 +135,16 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
         soundThrottleRef.current = 0;
       }
 
+      // Update altitude wind audio with seasonal weather squalls
+      const altitude = distance * Math.sin(SLOPE_ANGLE);
+      const seasonWindFactor = season === 'WINTER' ? 1.7 : season === 'AUTUMN' ? 1.35 : 1.0;
+      soundEngine.updateAmbientWind(altitude, isPushing && status === 'PUSHING', seasonWindFactor);
+
+      // Update birds
+      birdSystemRef.current.update(width, height, dt, () => {
+        soundEngine.playDistantBird();
+      });
+
       // Update boulder rotation
       if (status === 'PUSHING') {
         boulderAngleRef.current += dt * 3.8;
@@ -97,26 +152,70 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
         boulderAngleRef.current -= dt * 2.5;
         strainTrembleRef.current = (Math.random() - 0.5) * 4;
       } else if (status === 'CRASHING') {
-        boulderAngleRef.current -= dt * 14.0; // Fast rolling backward
+        boulderAngleRef.current -= dt * 14.0;
         strainTrembleRef.current = (Math.random() - 0.5) * 6;
       } else {
         strainTrembleRef.current = 0;
       }
 
-      // 1. Draw Atmospheric Sky Gradient (antique parchment / dusk)
+      // 1. Draw Atmospheric Sky Gradient (Dynamic Day/Night Cycle)
       const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
-      skyGrad.addColorStop(0, '#0F0E0D');
-      skyGrad.addColorStop(0.5, '#1B1713');
-      skyGrad.addColorStop(0.85, '#2D2319');
-      skyGrad.addColorStop(1, '#3D2F20');
+      skyGrad.addColorStop(0, atmosphere.skyColors[0]);
+      skyGrad.addColorStop(0.5, atmosphere.skyColors[1]);
+      skyGrad.addColorStop(1, atmosphere.skyColors[2]);
       ctx.fillStyle = skyGrad;
       ctx.fillRect(0, 0, width, height);
 
-      // 2. Distant mountain peaks (woodcut silhouette parallax)
+      // 1b. Stars field during Night / Dusk
+      if (atmosphere.starAlpha > 0.05) {
+        ctx.save();
+        starsRef.current.forEach((s) => {
+          const twinkle = 0.5 + Math.sin(now * s.twinkleSpeed) * 0.5;
+          ctx.fillStyle = `rgba(240, 235, 225, ${s.alpha * twinkle * atmosphere.starAlpha})`;
+          ctx.beginPath();
+          ctx.arc(s.x * width, s.y * height, s.size, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+      }
+
+      // 1c. Sun or Moon Disc
+      const celestialX = width * atmosphere.sunMoonPos.xRatio;
+      const celestialY = height * atmosphere.sunMoonPos.yRatio;
+      ctx.save();
+      if (atmosphere.timeOfDay === 'NIGHT') {
+        // Cold crescent moon
+        ctx.fillStyle = 'rgba(235, 232, 222, 0.75)';
+        ctx.beginPath();
+        ctx.arc(celestialX, celestialY, 26, 0, Math.PI * 2);
+        ctx.fill();
+        // Moon crater shadow
+        ctx.fillStyle = atmosphere.skyColors[0];
+        ctx.beginPath();
+        ctx.arc(celestialX + 9, celestialY - 4, 22, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        // Sun halo / disc
+        const sunGlow = ctx.createRadialGradient(celestialX, celestialY, 10, celestialX, celestialY, 60);
+        sunGlow.addColorStop(0, 'rgba(235, 215, 185, 0.45)');
+        sunGlow.addColorStop(0.6, 'rgba(235, 215, 185, 0.12)');
+        sunGlow.addColorStop(1, 'rgba(235, 215, 185, 0)');
+        ctx.fillStyle = sunGlow;
+        ctx.beginPath();
+        ctx.arc(celestialX, celestialY, 60, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // 2. Solitary Passing Birds
+      birdSystemRef.current.render(ctx);
+
+      // 3. Distant mountain peaks (woodcut silhouette parallax)
       const parallaxOffset = (distance * 12) % (width * 1.5);
       
-      // Distant mountain layer (subtle hazy charcoal)
-      ctx.fillStyle = '#1D1A17';
+      // Distant mountain layer
+      const distLight = Math.round(24 * atmosphere.ambientLight);
+      ctx.fillStyle = `rgb(${distLight}, ${distLight}, ${Math.round(distLight * 1.05)})`;
       ctx.beginPath();
       ctx.moveTo(-100, height);
       ctx.lineTo(-50, height * 0.45);
@@ -129,7 +228,8 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       ctx.fill();
 
       // Mid-distance rugged crag with etching crosshatches
-      ctx.fillStyle = '#26221D';
+      const midLight = Math.round(32 * atmosphere.ambientLight);
+      ctx.fillStyle = `rgb(${midLight}, ${Math.round(midLight * 0.95)}, ${Math.round(midLight * 0.88)})`;
       ctx.beginPath();
       ctx.moveTo(-100, height);
       ctx.lineTo(0, height * 0.65);
@@ -140,22 +240,17 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       ctx.closePath();
       ctx.fill();
 
-      // Sun / Eerie Moon Disc over the mountain
-      ctx.fillStyle = 'rgba(217, 185, 143, 0.12)';
-      ctx.beginPath();
-      ctx.arc(width * 0.78, height * 0.25, 48, 0, Math.PI * 2);
-      ctx.fill();
+      // 3b. Midground Silhouettes (Ledges, distant pines)
+      foregroundFoliageRef.current.renderMidground(ctx, width, height, distance, now);
 
-      // 3. Slope Setup
-      // Slope baseline equation: y = slopeY0 - tan(SLOPE_ANGLE) * x
-      // Ground plane passes through (slopeOriginX, slopeOriginY)
+      // 4. Slope Setup
       const slopeStartX = -50;
       const slopeStartY = height * 0.82;
       const slopeEndX = width + 50;
       const slopeEndY = slopeStartY - (slopeEndX - slopeStartX) * Math.tan(SLOPE_ANGLE);
 
-      // Draw Main Mountain Mass (Foreground rock)
-      ctx.fillStyle = '#161412';
+      // Draw Main Mountain Mass
+      ctx.fillStyle = atmosphere.timeOfDay === 'NIGHT' ? '#0E0D10' : '#151311';
       ctx.beginPath();
       ctx.moveTo(slopeStartX, slopeStartY);
       ctx.lineTo(slopeEndX, slopeEndY);
@@ -165,28 +260,69 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       ctx.fill();
 
       // Slope Rocky Rim Line & Crosshatch Crags
-      ctx.strokeStyle = '#6E6252';
+      ctx.strokeStyle = atmosphere.timeOfDay === 'NIGHT' ? '#4A4852' : '#6A5E50';
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(slopeStartX, slopeStartY);
       ctx.lineTo(slopeEndX, slopeEndY);
       ctx.stroke();
 
-      // Hatching lines along the slope edge (Classical engraving style)
-      ctx.strokeStyle = '#38322A';
-      ctx.lineWidth = 1;
-      const stepHatch = 18;
-      for (let hx = slopeStartX + 10; hx < slopeEndX; hx += stepHatch) {
-        const hy = slopeStartY - (hx - slopeStartX) * Math.tan(SLOPE_ANGLE);
+      // Seasonal Terrain Slope Modifications
+      if (season === 'WINTER') {
+        // Glistening Verglas / Black Ice on the granite slope
+        ctx.strokeStyle = 'rgba(235, 245, 255, 0.88)';
+        ctx.lineWidth = 3.8;
         ctx.beginPath();
-        ctx.moveTo(hx, hy);
-        ctx.lineTo(hx - 14, hy + 22);
+        ctx.moveTo(slopeStartX, slopeStartY - 1);
+        ctx.lineTo(slopeEndX, slopeEndY - 1);
+        ctx.stroke();
+
+        // Stalactites / Icicles hanging from the slope edge
+        ctx.fillStyle = 'rgba(235, 245, 255, 0.8)';
+        for (let ic = 20; ic < width; ic += 48) {
+          const icX = ic;
+          const icY = slopeStartY - (icX - slopeStartX) * Math.tan(SLOPE_ANGLE);
+          ctx.beginPath();
+          ctx.moveTo(icX, icY);
+          ctx.lineTo(icX + 2.5, icY + 11);
+          ctx.lineTo(icX + 5, icY);
+          ctx.fill();
+        }
+      } else if (season === 'AUTUMN') {
+        // Wet slippery fallen leaves scattered on the stone path
+        for (let l = 0; l < 14; l++) {
+          const lx = (l * 65 + (distance * 14)) % (width + 50);
+          const ly = slopeStartY - (lx - slopeStartX) * Math.tan(SLOPE_ANGLE) + 2;
+          ctx.fillStyle = l % 2 === 0 ? '#B45309' : '#D97706';
+          ctx.fillRect(lx, ly, 4.5, 2.2);
+        }
+      } else if (season === 'SPRING') {
+        // Spring alpine moss and tiny wildflower buds on rock fissures
+        for (let f = 0; f < 12; f++) {
+          const fx = (f * 70) % (width + 40);
+          const fy = slopeStartY - (fx - slopeStartX) * Math.tan(SLOPE_ANGLE) + 3;
+          ctx.fillStyle = f % 2 === 0 ? '#4ADE80' : '#F472B6';
+          ctx.beginPath();
+          ctx.arc(fx, fy, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Traces of past attempts (grooves on the rock)
+      const numScuffs = Math.min(18, 4 + totalAttempts * 2);
+      ctx.strokeStyle = 'rgba(40, 36, 32, 0.65)';
+      ctx.lineWidth = 2;
+      for (let s = 0; s < numScuffs; s++) {
+        const scuffX = (s * 47) % (width + 60);
+        const scuffY = slopeStartY - (scuffX - slopeStartX) * Math.tan(SLOPE_ANGLE) + 8;
+        ctx.beginPath();
+        ctx.moveTo(scuffX, scuffY);
+        ctx.lineTo(scuffX - 12, scuffY + 6);
         ctx.stroke();
       }
 
       // Distance milestones carved on stone slope
-      // Shift milestone positions based on current distance
-      const milestoneSpacing = 160; // pixels per 10m
+      const milestoneSpacing = 160;
       const pixelOffset = (distance * 16) % milestoneSpacing;
       const baseMarkerMeters = Math.floor(distance / 10) * 10;
 
@@ -199,26 +335,22 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
         const my = slopeStartY - (mx - slopeStartX) * Math.tan(SLOPE_ANGLE);
         const markerVal = baseMarkerMeters + m * 10;
         if (markerVal >= 0 && mx > 30 && mx < width - 30) {
-          // Carved milestone slab
           ctx.fillRect(mx - 8, my - 2, 16, 4);
           ctx.fillText(`${markerVal}m`, mx, my + 18);
         }
       }
 
-      // 4. Sisyphus and Boulder coordinates on slope
-      // We keep the player centered around 48% of the canvas width
+      // 5. Sisyphus and Boulder coordinates on slope
       const playerX = width * 0.42;
       const playerY = slopeStartY - (playerX - slopeStartX) * Math.tan(SLOPE_ANGLE);
 
-      // Boulder center position (touching the ground at tangent point)
-      // The contact point is along slope. Normal vector points up-perpendicular to slope.
       const normalX = Math.sin(SLOPE_ANGLE);
       const normalY = -Math.cos(SLOPE_ANGLE);
 
       const boulderCenterX = playerX + Math.cos(SLOPE_ANGLE) * (BOULDER_RADIUS * 0.95) + normalX * BOULDER_RADIUS + strainTrembleRef.current;
       const boulderCenterY = playerY - Math.sin(SLOPE_ANGLE) * (BOULDER_RADIUS * 0.95) + normalY * BOULDER_RADIUS;
 
-      // Spawn dust at Sisyphus feet when pushing or slipping
+      // Dust & particles
       if (status === 'PUSHING' && Math.random() > 0.4) {
         spawnDust(playerX - 20, playerY, 1, false);
       } else if (status === 'SLIPPING') {
@@ -227,17 +359,16 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
         spawnDust(boulderCenterX, boulderCenterY + BOULDER_RADIUS * 0.7, 4, true);
       }
 
-      // 5. Draw Silhouette of Sisyphus
+      // 6. Draw Silhouette of Sisyphus
       ctx.save();
       ctx.translate(playerX, playerY);
-      ctx.rotate(-SLOPE_ANGLE); // Align with mountain incline
+      ctx.rotate(-SLOPE_ANGLE);
 
-      ctx.fillStyle = '#080807'; // Deep black ink silhouette
-      ctx.strokeStyle = '#080807';
+      ctx.fillStyle = '#060606';
+      ctx.strokeStyle = '#060606';
 
       const lean = isPushing ? 0.38 : (status === 'SLIPPING' ? -0.1 : 0.05);
 
-      // Feet & Legs
       ctx.lineWidth = 7;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -263,25 +394,22 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       ctx.lineWidth = 11;
       ctx.stroke();
 
-      // Head bowed down in intense physical concentration
+      // Head bowed down
       ctx.beginPath();
       ctx.arc(22 + lean * 20, -52, 7.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Arms reaching out and pushing against boulder face
+      // Arms reaching out
       ctx.lineWidth = 6;
       ctx.beginPath();
       ctx.moveTo(14 + lean * 16, -45);
       if (isPushing) {
-        // Taut arms extended against the rock
         ctx.lineTo(32, -43);
         ctx.lineTo(44, -38);
       } else if (status === 'SLIPPING') {
-        // Struggling / slipping grip
         ctx.lineTo(26, -38);
         ctx.lineTo(38, -30);
       } else {
-        // Resting on rock
         ctx.lineTo(24, -36);
         ctx.lineTo(36, -34);
       }
@@ -289,7 +417,7 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
 
       ctx.restore();
 
-      // 6. Draw The Boulder (Engraved Granite Stone)
+      // 7. Draw The Boulder (Engraved Granite Stone)
       ctx.save();
       ctx.translate(boulderCenterX, boulderCenterY);
       ctx.rotate(boulderAngleRef.current);
@@ -303,12 +431,11 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       ctx.fill();
       ctx.restore();
 
-      // Boulder body - craggy polygon (never a perfectly smooth sphere)
+      // Boulder body - craggy polygon
       const numVertices = 16;
       ctx.beginPath();
       for (let i = 0; i < numVertices; i++) {
         const vAngle = (i / numVertices) * Math.PI * 2;
-        // Pseudo-random facet roughness based on vertex index
         const wobble = 1 + Math.sin(i * 3.4) * 0.08 + Math.cos(i * 1.9) * 0.06;
         const rad = BOULDER_RADIUS * wobble;
         const vx = Math.cos(vAngle) * rad;
@@ -318,7 +445,6 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       }
       ctx.closePath();
 
-      // Stone shading: dark granite with parchment rim
       const stoneGrad = ctx.createRadialGradient(-BOULDER_RADIUS * 0.3, -BOULDER_RADIUS * 0.3, 8, 0, 0, BOULDER_RADIUS);
       stoneGrad.addColorStop(0, '#544D42');
       stoneGrad.addColorStop(0.65, '#2B2620');
@@ -330,37 +456,18 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       ctx.lineWidth = 3;
       ctx.stroke();
 
-      // Internal Fissures & Engraving Etch Marks
+      // Fissures
       ctx.strokeStyle = 'rgba(215, 195, 165, 0.28)';
       ctx.lineWidth = 1.5;
-
-      // Fissure 1
       ctx.beginPath();
       ctx.moveTo(-BOULDER_RADIUS * 0.4, -BOULDER_RADIUS * 0.2);
       ctx.lineTo(-10, 5);
       ctx.lineTo(BOULDER_RADIUS * 0.35, 8);
       ctx.stroke();
 
-      // Fissure 2
-      ctx.beginPath();
-      ctx.moveTo(5, -BOULDER_RADIUS * 0.5);
-      ctx.lineTo(12, -10);
-      ctx.lineTo(26, -5);
-      ctx.stroke();
-
-      // Hatching texture inside boulder
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-      ctx.lineWidth = 1;
-      for (let line = -25; line <= 25; line += 8) {
-        ctx.beginPath();
-        ctx.moveTo(line, -15);
-        ctx.lineTo(line + 10, 15);
-        ctx.stroke();
-      }
-
       ctx.restore();
 
-      // 7. Update and Render Particles
+      // 8. Update and Render Particles
       for (let i = particlesRef.current.length - 1; i >= 0; i--) {
         const p = particlesRef.current[i];
         p.x += p.vx;
@@ -380,13 +487,38 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
         }
       }
 
-      // 8. Warning overlay if slipping
+      // 9. Foreground Foliage Layer (Twisted Pines, Thorn Bushes, Wild Grass with Deep Parallax)
+      foregroundFoliageRef.current.render(ctx, width, height, distance, now, season);
+
+      // 10. Floating Death Stranding style Interior Monologue
+      const thought = monologueEngine.getActiveThought();
+      if (thought) {
+        ctx.save();
+        ctx.font = 'italic 15px Newsreader, Georgia, serif';
+        ctx.textAlign = 'center';
+        // Subtle dark translucent banner
+        const textMetrics = ctx.measureText(thought.text);
+        const boxWidth = textMetrics.width + 36;
+        const boxY = height * 0.18;
+
+        ctx.fillStyle = `rgba(10, 9, 8, ${thought.alpha * 0.72})`;
+        ctx.fillRect(width / 2 - boxWidth / 2, boxY - 18, boxWidth, 32);
+
+        ctx.strokeStyle = `rgba(80, 72, 60, ${thought.alpha * 0.5})`;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(width / 2 - boxWidth / 2, boxY - 18, boxWidth, 32);
+
+        ctx.fillStyle = `rgba(238, 230, 218, ${thought.alpha})`;
+        ctx.fillText(thought.text, width / 2, boxY + 4);
+        ctx.restore();
+      }
+
+      // 10. Warning overlay if slipping
       if (status === 'SLIPPING') {
         const pulse = 0.15 + Math.sin(now * 0.015) * 0.1;
         ctx.fillStyle = `rgba(180, 40, 30, ${pulse})`;
         ctx.fillRect(0, 0, width, height);
 
-        // Warning Text in Canvas
         ctx.font = '700 13px Cinzel, serif';
         ctx.fillStyle = '#EF4444';
         ctx.textAlign = 'center';
@@ -406,7 +538,7 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [status, isPushing, distance, SLOPE_ANGLE, spawnDust]);
+  }, [status, isPushing, distance, runTime, totalAttempts, lang, SLOPE_ANGLE, spawnDust]);
 
   // Adjust canvas size to match container with crisp Hi-DPI
   useEffect(() => {
@@ -424,8 +556,10 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const atmosphere = getAtmosphereForCycle(totalAttempts, runTime);
+
   return (
-    <div className="relative w-full aspect-[16/9] min-h-[300px] max-h-[520px] rounded-xl overflow-hidden border border-[#3A332A] bg-[#121110] shadow-2xl no-select">
+    <div className="relative w-full aspect-[16/9] min-h-[320px] max-h-[540px] rounded-xl overflow-hidden border border-[#3A332A] bg-[#121110] shadow-2xl no-select">
       <canvas
         ref={canvasRef}
         className="w-full h-full block cursor-pointer touch-none"
@@ -444,14 +578,20 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
         aria-label="Sisyphus Mountain Interactive Canvas"
       />
 
-      {/* Tolerance / Grip Grace Bar at top of canvas */}
+      {/* Atmospheric Header: Season & Time of Day */}
       <div className="absolute top-3 left-4 right-4 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-          <span className="text-[11px] font-cinzel uppercase tracking-widest text-amber-200/80">
-            {status === 'PUSHING' ? 'MOMENTUM SUSTAINED' : status === 'SLIPPING' ? 'GRACE EXPIRING' : 'READY TO ASCEND'}
+        <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-[#3C342A]">
+          <span className="text-xs">{seasonConfig.icon}</span>
+          <span className="text-[11px] font-cinzel uppercase tracking-widest text-amber-200/90 font-bold">
+            {lang === 'fr' ? seasonConfig.nameFr : seasonConfig.nameEn}
+          </span>
+          <span className="text-[10px] text-[#8C8070] font-mono">·</span>
+          <span className="text-[10px] font-mono text-[#C4B9AA]">
+            {lang === 'fr' ? atmosphere.labelFr : atmosphere.labelEn}
           </span>
         </div>
+        
+        {/* Grip / Inertia Bar */}
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-[#A69B8D] font-mono">
             {Math.round(toleranceRatio * 100)}%

@@ -2,6 +2,7 @@
   "name": "The Eternal Push - Sisyphus Game",
   "description": "An absurdist browser game inspired by the myth of Sisyphus. Push the boulder uphill, face the inevitable slip, and embrace the absurd.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
-
