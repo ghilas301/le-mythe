@@ -1,8 +1,23 @@
 export type Language = 'en' | 'fr';
 
-export type GameStatus = 'IDLE' | 'PUSHING' | 'SLIPPING' | 'CRASHING' | 'GAME_OVER';
+export type GameStatus = 'IDLE' | 'PUSHING' | 'SLIPPING' | 'CRASHING' | 'DESCENDING' | 'GAME_OVER';
 
 export type Season = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER';
+
+export type BiomeType = 'VALLEY_SHADOWS' | 'WINDSWEPT_CRAG' | 'VERGLAS_WALL' | 'OLYMPUS_ETHER';
+
+export interface BiomeConfig {
+  type: BiomeType;
+  minDist: number;
+  maxDist: number;
+  nameFr: string;
+  nameEn: string;
+  subtitleFr: string;
+  subtitleEn: string;
+  mistDensity: number;
+  lightFactor: number;
+  tintRgb: string;
+}
 
 export interface SeasonConfig {
   season: Season;
@@ -19,6 +34,15 @@ export interface SeasonConfig {
   groundColorTint: string;
 }
 
+export interface CairnMarker {
+  id: string;
+  distance: number;
+  labelFr: string;
+  labelEn: string;
+  attemptsAtPoint: number;
+  timestamp: number;
+}
+
 export interface GameStats {
   currentDistance: number; // in meters
   currentAltitude: number; // in meters
@@ -29,6 +53,7 @@ export interface GameStats {
   totalTimeAllTime: number;
   totalGamesPlayed: number;
   totalPushesAllTime: number;
+  cairns?: CairnMarker[];
 }
 
 export interface RunSummary {
@@ -39,6 +64,7 @@ export interface RunSummary {
   isNewRecord: boolean;
   absurdRemark: string;
   timestamp: number;
+  biomeReached?: string;
 }
 
 export interface AdSimulationConfig {

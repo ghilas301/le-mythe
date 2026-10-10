@@ -1,7 +1,7 @@
 import React from 'react';
 import { GameStatus, GameStats } from '../types/game';
 import { Translations } from '../services/i18n';
-import { Trophy, Clock, Mountain, ArrowUpRight, Flame } from 'lucide-react';
+import { Trophy, Clock, Mountain, ArrowUpRight, Flame, Footprints, SkipForward } from 'lucide-react';
 
 interface GameHUDProps {
   stats: GameStats;
@@ -10,6 +10,7 @@ interface GameHUDProps {
   t: Translations;
   onPushStart: () => void;
   onPushEnd: () => void;
+  onSkipDescent?: () => void;
 }
 
 export const GameHUD: React.FC<GameHUDProps> = ({
@@ -18,11 +19,12 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   isPushing,
   t,
   onPushStart,
-  onPushEnd
+  onPushEnd,
+  onSkipDescent
 }) => {
   return (
     <div className="w-full flex flex-col gap-6 mt-4">
-      {/* 1. Live Stat Strip - Clean, unboxed typography with typographic separators per design system */}
+      {/* 1. Live Stat Strip - Clean, unboxed typography with typographic separators */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 rounded-xl bg-[#1A1815] border border-[#2F2922]">
         {/* Distance */}
         <div className="flex flex-col">
@@ -83,37 +85,84 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
       {/* 2. Primary Tactical Action Zone */}
       <div className="flex flex-col items-center justify-center gap-3">
-        <button
-          type="button"
-          onMouseDown={onPushStart}
-          onMouseUp={onPushEnd}
-          onMouseLeave={onPushEnd}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            onPushStart();
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            onPushEnd();
-          }}
-          onTouchCancel={onPushEnd}
-          className={`group relative w-full max-w-md py-5 px-8 rounded-xl font-cinzel font-bold text-xl uppercase tracking-widest transition-all duration-100 cursor-pointer select-none no-select shadow-xl active:scale-[0.98] ${
-            isPushing
-              ? 'bg-amber-600 text-white shadow-amber-900/40 translate-y-1'
-              : 'bg-gradient-to-b from-[#2C261F] to-[#1F1B16] text-[#E8E2D8] border border-[#544839] hover:border-amber-500/60 hover:text-white'
-          }`}
-          aria-label={t.pushAction}
-        >
-          <div className="flex items-center justify-center gap-3">
-            <Flame className={`w-6 h-6 transition-transform ${isPushing ? 'scale-125 text-amber-200' : 'text-amber-500'}`} />
-            <span>{isPushing ? (status === 'SLIPPING' ? t.gameStatusSlipping : t.pushAction) : t.pushAction}</span>
+        {status === 'DESCENDING' ? (
+          <div className="w-full max-w-md flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onMouseDown={onPushStart}
+              onMouseUp={onPushEnd}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                onPushStart();
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                onPushEnd();
+              }}
+              className="flex-1 py-4 px-6 rounded-xl font-cinzel font-bold text-base uppercase tracking-wider bg-gradient-to-b from-[#2E2820] to-[#1C1814] text-amber-200 border border-amber-600/50 hover:border-amber-400 hover:text-white transition-all cursor-pointer shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              <Footprints className="w-5 h-5 text-amber-400" />
+              <span>{t.descentAction}</span>
+            </button>
+            {onSkipDescent && (
+              <button
+                type="button"
+                onClick={onSkipDescent}
+                className="py-4 px-4 rounded-xl font-cinzel text-xs font-semibold uppercase tracking-wider bg-[#171513] text-[#A69B8D] border border-[#332D24] hover:text-[#EDE8E0] hover:border-[#524738] transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span>{t.skipDescentBtn}</span>
+                <SkipForward className="w-4 h-4" />
+              </button>
+            )}
           </div>
-        </button>
+        ) : (
+          <button
+            type="button"
+            disabled={status === 'CRASHING'}
+            onMouseDown={onPushStart}
+            onMouseUp={onPushEnd}
+            onMouseLeave={onPushEnd}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              onPushStart();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              onPushEnd();
+            }}
+            onTouchCancel={onPushEnd}
+            className={`group relative w-full max-w-md py-5 px-8 rounded-xl font-cinzel font-bold text-xl uppercase tracking-widest transition-all duration-100 cursor-pointer select-none no-select shadow-xl active:scale-[0.98] ${
+              status === 'CRASHING'
+                ? 'bg-[#1C1A18] text-[#736A5E] border border-[#2F2923] cursor-not-allowed'
+                : isPushing
+                ? 'bg-amber-600 text-white shadow-amber-900/40 translate-y-1'
+                : 'bg-gradient-to-b from-[#2C261F] to-[#1F1B16] text-[#E8E2D8] border border-[#544839] hover:border-amber-500/60 hover:text-white'
+            }`}
+            aria-label={t.pushAction}
+          >
+            <div className="flex items-center justify-center gap-3">
+              <Flame className={`w-6 h-6 transition-transform ${isPushing ? 'scale-125 text-amber-200' : 'text-amber-500'}`} />
+              <span>
+                {status === 'CRASHING'
+                  ? (t.gameStatusCrashed)
+                  : isPushing
+                  ? (status === 'SLIPPING' ? t.gameStatusSlipping : t.pushAction)
+                  : t.pushAction}
+              </span>
+            </div>
+          </button>
+        )}
 
-        {/* Subtle controls hint text without generic pill badge */}
+        {/* Subtle controls hint text */}
         <p className="text-xs text-[#9E9484] text-center font-medium">
-          <span className="hidden sm:inline">{t.pushInstructionDesktop}</span>
-          <span className="sm:hidden">{t.pushInstructionMobile}</span>
+          {status === 'DESCENDING' ? (
+            <span>{t.descentSubtitle}</span>
+          ) : (
+            <>
+              <span className="hidden sm:inline">{t.pushInstructionDesktop}</span>
+              <span className="sm:hidden">{t.pushInstructionMobile}</span>
+            </>
+          )}
         </p>
       </div>
     </div>

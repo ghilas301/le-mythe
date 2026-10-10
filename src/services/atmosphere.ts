@@ -712,11 +712,12 @@ export class ForegroundFoliage {
     x: number,
     baseY: number,
     size: number,
-    sway: number
+    sway: number,
+    season: Season = 'SPRING'
   ) {
     ctx.save();
     ctx.translate(x, baseY);
-    ctx.strokeStyle = '#050505';
+    ctx.strokeStyle = season === 'WINTER' ? '#CBD5E1' : '#050505';
 
     const numFronds = 5;
     for (let f = 0; f < numFronds; f++) {

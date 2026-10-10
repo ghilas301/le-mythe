@@ -12,6 +12,13 @@ export interface Translations {
   gameStatusPushing: string;
   gameStatusSlipping: string;
   gameStatusCrashed: string;
+  gameStatusDescending: string;
+  descentTitle: string;
+  descentSubtitle: string;
+  descentAction: string;
+  skipDescentBtn: string;
+  cairnPassed: string;
+  biomeLabel: string;
   statDistance: string;
   statAltitude: string;
   statTime: string;
@@ -116,6 +123,13 @@ export const translations: Record<Language, Translations> = {
     gameStatusPushing: 'Straining upward...',
     gameStatusSlipping: 'Slipping! Resume pushing!',
     gameStatusCrashed: 'Gravity reclaimed the boulder.',
+    gameStatusDescending: 'The conscious walk down...',
+    descentTitle: 'The Walk Down',
+    descentSubtitle: '“It is during that return, that pause, that Sisyphus interests me.” — Albert Camus',
+    descentAction: 'STEP DOWNWARD',
+    skipDescentBtn: 'Skip to Summary',
+    cairnPassed: 'Cairn Marker Reached',
+    biomeLabel: 'Altitude Biome',
     statDistance: 'Distance',
     statAltitude: 'Altitude',
     statTime: 'Endurance',
@@ -216,6 +230,13 @@ export const translations: Record<Language, Translations> = {
     gameStatusPushing: 'Effort vers les hauteurs...',
     gameStatusSlipping: 'Ça glisse ! Reprends la poussée !',
     gameStatusCrashed: 'La gravité a repris ses droits.',
+    gameStatusDescending: 'La marche lucide de retour...',
+    descentTitle: 'La Marche de Descente',
+    descentSubtitle: '« C’est pendant ce retour, cette pause, que Sisyphe m’intéresse. » — Albert Camus',
+    descentAction: 'DESCENDRE D’UN PAS LOURD',
+    skipDescentBtn: 'Passer au bilan',
+    cairnPassed: 'Cairn de mémoire franchi',
+    biomeLabel: 'Biome d’Altitude',
     statDistance: 'Distance',
     statAltitude: 'Altitude',
     statTime: 'Endurance',

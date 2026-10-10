@@ -14,7 +14,7 @@ import { GameOverModal } from './components/GameOverModal';
 import { ShareCardModal } from './components/ShareCardModal';
 import { EditorialSections } from './components/EditorialSections';
 import { DownloadModal } from './components/DownloadModal';
-import { Volume2, VolumeX, Globe, Shield, Sparkles, Download, Music } from 'lucide-react';
+import { Volume2, VolumeX, Globe, Shield, Sparkles, Download, Music, Footprints } from 'lucide-react';
 
 const TOLERANCE_WINDOW_MS = 950; // ~0.95 seconds grace before gravity reclaims boulder
 
@@ -41,6 +41,7 @@ export default function App() {
   const [status, setStatus] = useState<GameStatus>('IDLE');
   const [isPushing, setIsPushing] = useState<boolean>(false);
   const [currentDistance, setCurrentDistance] = useState<number>(0);
+  const [descendDistance, setDescendDistance] = useState<number>(0);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [pushCount, setPushCount] = useState<number>(0);
   const [toleranceRemainingMs, setToleranceRemainingMs] = useState<number>(TOLERANCE_WINDOW_MS);
@@ -63,11 +64,12 @@ export default function App() {
       totalDistanceAllTime: 0,
       totalTimeAllTime: 0,
       totalGamesPlayed: 0,
-      totalPushesAllTime: 0
+      totalPushesAllTime: 0,
+      cairns: []
     };
   });
 
-  // Monetization Config
+  // Monetization Config (clean compliance)
   const [adConfig] = useState<AdSimulationConfig>({
     showRealScript: false,
     adsterraZoneId: '',
@@ -81,7 +83,7 @@ export default function App() {
 
   const t = translations[lang];
 
-  // Active Season Configuration (changes terrain friction, weather squalls and tree visuals)
+  // Active Season Configuration
   const seasonConfig = getSeasonForAttempt(stats.totalGamesPlayed, currentDistance);
 
   // Save Stats Helper
@@ -121,6 +123,7 @@ export default function App() {
   const isPushingRef = useRef<boolean>(false);
   const statusRef = useRef<GameStatus>('IDLE');
   const distanceRef = useRef<number>(0);
+  const descendDistanceRef = useRef<number>(0);
   const timeRef = useRef<number>(0);
   const pushCountRef = useRef<number>(0);
   const graceRef = useRef<number>(TOLERANCE_WINDOW_MS);
@@ -158,6 +161,23 @@ export default function App() {
       timestamp: Date.now()
     };
 
+    // Update memorial cairns on the mountain
+    const updatedCairns = stats.cairns ? [...stats.cairns] : [];
+    if (finalDistance >= 15 && !updatedCairns.some(c => Math.abs(c.distance - finalDistance) < 6)) {
+      updatedCairns.push({
+        id: `cairn_${Date.now()}`,
+        distance: finalDistance,
+        labelFr: `Chute à ${Math.round(finalDistance)}m`,
+        labelEn: `Fell at ${Math.round(finalDistance)}m`,
+        attemptsAtPoint: 1,
+        timestamp: Date.now()
+      });
+      if (updatedCairns.length > 8) {
+        updatedCairns.sort((a, b) => b.distance - a.distance);
+        updatedCairns.length = 8;
+      }
+    }
+
     // Update cumulative lifetime stats
     const newMax = Math.max(maxDistanceRef.current, finalDistance);
     const updatedStats: GameStats = {
@@ -169,18 +189,32 @@ export default function App() {
       totalDistanceAllTime: stats.totalDistanceAllTime + finalDistance,
       totalTimeAllTime: stats.totalTimeAllTime + finalTime,
       totalGamesPlayed: stats.totalGamesPlayed + 1,
-      totalPushesAllTime: stats.totalPushesAllTime + finalPushes
+      totalPushesAllTime: stats.totalPushesAllTime + finalPushes,
+      cairns: updatedCairns
     };
     persistStats(updatedStats);
 
-    // After brief crash tumble animation, reveal Game Over Modal
-    setTimeout(() => {
-      setStatus('GAME_OVER');
-      statusRef.current = 'GAME_OVER';
-      setLastSummary(summary);
-      setCurrentDistance(0);
-      distanceRef.current = 0;
-    }, 900);
+    // If significant distance was achieved, experience the Camusian Descent!
+    if (finalDistance >= 6) {
+      setTimeout(() => {
+        setStatus('DESCENDING');
+        statusRef.current = 'DESCENDING';
+        setDescendDistance(finalDistance);
+        descendDistanceRef.current = finalDistance;
+        setLastSummary(summary);
+        setCurrentDistance(0);
+        distanceRef.current = 0;
+        soundEngine.startAmbientMusic(true);
+      }, 1100);
+    } else {
+      setTimeout(() => {
+        setStatus('GAME_OVER');
+        statusRef.current = 'GAME_OVER';
+        setLastSummary(summary);
+        setCurrentDistance(0);
+        distanceRef.current = 0;
+      }, 900);
+    }
   }, [lang, stats, persistStats]);
 
   // Push Start & End Callbacks
@@ -189,12 +223,19 @@ export default function App() {
 
     // Start ambient score upon player interaction if enabled
     if (soundEngine.musicEnabled && !soundEngine.isMuted) {
-      soundEngine.startAmbientMusic();
+      soundEngine.startAmbientMusic(statusRef.current === 'DESCENDING');
     }
 
     if (!isPushingRef.current) {
       isPushingRef.current = true;
       setIsPushing(true);
+
+      if (statusRef.current === 'DESCENDING') {
+        // Step downward
+        soundEngine.playFootstep(false);
+        return;
+      }
+
       pushCountRef.current += 1;
       setPushCount((c) => c + 1);
 
@@ -214,11 +255,19 @@ export default function App() {
     }
   }, []);
 
+  const handleSkipDescent = useCallback(() => {
+    setStatus('GAME_OVER');
+    statusRef.current = 'GAME_OVER';
+    setDescendDistance(0);
+    descendDistanceRef.current = 0;
+    soundEngine.startAmbientMusic(false);
+    soundEngine.playClick();
+  }, []);
+
   // Keyboard Spacebar Listener (with strict preventDefault to avoid page scroll)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !e.repeat) {
-        // Prevent default spacebar page scrolling
         e.preventDefault();
         handlePushStart();
       }
@@ -231,7 +280,6 @@ export default function App() {
       }
     };
 
-    // Window blur or tab hidden handling
     const handleVisibilityChange = () => {
       if (document.hidden) {
         handlePushEnd();
@@ -262,12 +310,10 @@ export default function App() {
         setElapsedTime(timeRef.current);
 
         if (isPushingRef.current) {
-          // Pushing forward (affected by seasonal wind resistance and terrain friction)
           const speed = 4.2 * seasonConfig.pushSpeedMod;
           distanceRef.current += speed * dt;
           setCurrentDistance(distanceRef.current);
 
-          // Replenish grace (window depends on seasonal grip)
           graceRef.current = Math.min(seasonConfig.graceWindowMs, graceRef.current + dt * 1500);
           setToleranceRemainingMs(graceRef.current);
 
@@ -276,29 +322,37 @@ export default function App() {
             setStatus('PUSHING');
           }
         } else {
-          // Player released push! Drain grace tolerance window
           graceRef.current -= dt * 1000;
           setToleranceRemainingMs(Math.max(0, graceRef.current));
 
           if (graceRef.current <= 0) {
-            // Grace expired: stone starts slipping backward!
             if (statusRef.current !== 'SLIPPING') {
               statusRef.current = 'SLIPPING';
               setStatus('SLIPPING');
               soundEngine.playSlipWarning();
             }
 
-            // Gravity pulling back (aggravated by slippery verglas / mud)
             const gravitySpeed = 6.5 * seasonConfig.slipGravityMod;
             distanceRef.current -= gravitySpeed * dt;
             setCurrentDistance(Math.max(0, distanceRef.current));
 
-            // If stone rolls back significantly or reaches 0, catastrophic crash!
             if (distanceRef.current <= 0.1 || graceRef.current <= -900) {
               triggerCrash();
               return;
             }
           }
+        }
+      } else if (statusRef.current === 'DESCENDING') {
+        // Sisyphus walks down the mountain in contemplation
+        const descendSpeed = isPushingRef.current ? 16 : 5.2;
+        descendDistanceRef.current = Math.max(0, descendDistanceRef.current - descendSpeed * dt);
+        setDescendDistance(descendDistanceRef.current);
+
+        if (descendDistanceRef.current <= 0.1) {
+          setStatus('GAME_OVER');
+          statusRef.current = 'GAME_OVER';
+          soundEngine.startAmbientMusic(false);
+          return;
         }
       }
 
@@ -309,7 +363,7 @@ export default function App() {
     animId = requestAnimationFrame(tick);
 
     return () => cancelAnimationFrame(animId);
-  }, [triggerCrash]);
+  }, [triggerCrash, seasonConfig]);
 
   // Restart Handler
   const handleRestart = () => {
@@ -319,6 +373,8 @@ export default function App() {
     isPushingRef.current = false;
     setCurrentDistance(0);
     distanceRef.current = 0;
+    setDescendDistance(0);
+    descendDistanceRef.current = 0;
     setElapsedTime(0);
     timeRef.current = 0;
     setPushCount(0);
@@ -326,6 +382,7 @@ export default function App() {
     graceRef.current = seasonConfig.graceWindowMs;
     setToleranceRemainingMs(seasonConfig.graceWindowMs);
     setLastSummary(null);
+    soundEngine.startAmbientMusic(false);
     soundEngine.playClick();
   };
 
@@ -334,7 +391,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#121110] text-[#E8E4DF] flex flex-col items-center">
       
-      {/* 1. Header Bar: Brand, Navigation & System Controls */}
+      {/* 1. Header Bar: Brand & System Controls */}
       <header className="w-full max-w-5xl px-4 py-4 sm:py-6 flex items-center justify-between border-b border-[#25201A]">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-600 to-amber-900 border border-amber-500/40 flex items-center justify-center font-cinzel font-black text-white text-base shadow-md">
@@ -345,58 +402,56 @@ export default function App() {
               {t.siteTitle}
             </span>
             <span className="text-[10px] text-[#8E8373] tracking-widest uppercase font-mono">
-              Sisyphus Absurdist Game
+              {lang === 'fr' ? 'Le Mythe de Sisyphe · Jeu Web' : 'Sisyphus Absurdist Game'}
             </span>
           </div>
         </div>
 
-        {/* Global Controls: Download, Audio & Language Switcher */}
+        {/* Global Controls: Audio & Language */}
         <div className="flex items-center gap-2">
-          {/* Download Project / Install App Button */}
           <button
             type="button"
             onClick={() => setShowDownloadModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-600 hover:to-amber-700 border border-amber-500/50 text-xs font-cinzel font-bold text-white shadow-md transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1F1B16] hover:bg-[#2A241E] border border-[#3A3226] text-xs font-cinzel font-semibold text-[#D4C8B8] shadow-sm transition-all cursor-pointer"
             title={t.downloadAction}
           >
-            <Download className="w-3.5 h-3.5 text-amber-200" />
-            <span>{t.downloadAction}</span>
+            <Download className="w-3.5 h-3.5 text-amber-300" />
+            <span className="hidden sm:inline">{t.downloadAction}</span>
           </button>
 
-          {/* Ambient Music Toggle */}
           <button
             type="button"
             onClick={handleToggleMusic}
             className={`p-2 rounded-lg border transition-colors cursor-pointer ${
-              isMusicOn && !isMuted
-                ? 'bg-amber-950/70 border-amber-500/60 text-amber-300'
-                : 'bg-[#1B1815] border-[#342D24] text-[#6E6455] hover:text-[#A69B8B]'
+              isMusicOn
+                ? 'bg-amber-950/40 border-amber-700/60 text-amber-300'
+                : 'bg-[#181614] border-[#2E2820] text-[#696155] hover:text-[#A89E8F]'
             }`}
-            title={isMusicOn ? 'Musique contemplative : Active' : 'Musique contemplative : Muette'}
-            aria-label="Musique contemplative"
+            title="Ambient Music"
           >
             <Music className="w-4 h-4" />
           </button>
 
-          {/* Audio Mute Button */}
           <button
             type="button"
             onClick={handleToggleSound}
-            className="p-2 rounded-lg bg-[#1B1815] hover:bg-[#28231E] border border-[#342D24] text-[#A69B8B] hover:text-[#E8E2D8] transition-colors cursor-pointer"
+            className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+              !isMuted
+                ? 'bg-amber-950/40 border-amber-700/60 text-amber-300'
+                : 'bg-[#181614] border-[#2E2820] text-[#696155] hover:text-[#A89E8F]'
+            }`}
             title={isMuted ? t.soundOff : t.soundOn}
-            aria-label={isMuted ? t.soundOff : t.soundOn}
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-amber-400" />}
+            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
           </button>
 
-          {/* Language Switcher */}
           <button
             type="button"
             onClick={handleToggleLanguage}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1B1815] hover:bg-[#28231E] border border-[#342D24] text-xs font-mono text-[#D4CBBF] transition-colors cursor-pointer"
-            title="Switch Language (EN / FR)"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#181614] hover:bg-[#24201B] border border-[#2E2820] text-xs font-mono text-[#D4C8B8] transition-colors cursor-pointer"
+            title="Toggle Language"
           >
-            <Globe className="w-3.5 h-3.5 text-amber-500" />
+            <Globe className="w-3.5 h-3.5 text-amber-400" />
             <span className="font-bold uppercase">{lang}</span>
           </button>
         </div>
@@ -405,7 +460,7 @@ export default function App() {
       {/* 2. Main Game Arena Container */}
       <main className="w-full max-w-4xl px-4 py-6 sm:py-8 flex flex-col items-center">
         
-        {/* SEO-Optimized Hero Header */}
+        {/* Hero Header */}
         <div className="text-center max-w-2xl mb-6">
           <div className="text-xs uppercase tracking-widest text-amber-500/90 font-mono mb-2 flex items-center justify-center gap-1.5">
             <Sparkles className="w-3 h-3 text-amber-500" />
@@ -427,29 +482,36 @@ export default function App() {
           runTime={elapsedTime}
           totalAttempts={stats.totalGamesPlayed}
           toleranceRatio={toleranceRatio}
+          season={seasonConfig.season}
+          seasonConfig={seasonConfig}
           lang={lang}
+          maxDistance={stats.maxDistance}
+          cairns={stats.cairns}
+          descendDistance={descendDistance}
           onPushStart={handlePushStart}
           onPushEnd={handlePushEnd}
         />
 
-        {/* Live Metrics HUD & Primary Touch Action */}
+        {/* Live Metrics HUD & Primary Tactical Action */}
         <GameHUD
           stats={{
-            currentDistance,
-            currentAltitude: currentDistance * Math.sin(0.44),
+            currentDistance: status === 'DESCENDING' ? descendDistance : currentDistance,
+            currentAltitude: (status === 'DESCENDING' ? descendDistance : currentDistance) * Math.sin(0.44),
             elapsedTime,
             pushCount,
             maxDistance: stats.maxDistance,
             totalDistanceAllTime: stats.totalDistanceAllTime,
             totalTimeAllTime: stats.totalTimeAllTime,
             totalGamesPlayed: stats.totalGamesPlayed,
-            totalPushesAllTime: stats.totalPushesAllTime
+            totalPushesAllTime: stats.totalPushesAllTime,
+            cairns: stats.cairns
           }}
           status={status}
           isPushing={isPushing}
           t={t}
           onPushStart={handlePushStart}
           onPushEnd={handlePushEnd}
+          onSkipDescent={handleSkipDescent}
         />
 
         {/* Lifetime Struggle Banner (Clean Unboxed Typography) */}
@@ -471,12 +533,12 @@ export default function App() {
           <a href="#faq" className="hover:text-amber-400 transition-colors">{t.faqTitle}</a>
         </nav>
 
-        {/* 3. Deep Editorial Sections (SEO & Philosophy) */}
+        {/* 3. Deep Editorial & Philosophical Sections */}
         <EditorialSections t={t} />
 
       </main>
 
-      {/* 6. Footer */}
+      {/* Footer */}
       <footer className="w-full border-t border-[#221E19] py-8 px-4 mt-16 text-center text-xs text-[#73695C] flex flex-col items-center gap-3">
         <p>{t.footerRights}</p>
         <div className="flex items-center gap-4 text-xs text-[#8A7F70]">
