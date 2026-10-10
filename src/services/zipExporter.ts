@@ -105,6 +105,16 @@ const TSCONFIG_STRING = `{
   }
 }`;
 
+const VERCEL_CONFIG_STRING = `{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}`;
+
 /**
  * Downloads the entire project as a clean, ready-to-use ZIP file.
  */
@@ -116,6 +126,7 @@ export async function downloadProjectZip(onProgress?: (percent: number) => void)
   zip.file('package.json', PACKAGE_JSON_STRING);
   zip.file('vite.config.ts', VITE_CONFIG_STRING);
   zip.file('tsconfig.json', TSCONFIG_STRING);
+  zip.file('vercel.json', VERCEL_CONFIG_STRING);
 
   // Fetch current page index.html
   try {
