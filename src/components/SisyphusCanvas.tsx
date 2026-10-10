@@ -4,6 +4,9 @@ import { soundEngine } from '../services/audio';
 import { BirdSystem, ForegroundFoliage, getAtmosphereForCycle } from '../services/atmosphere';
 import { monologueEngine } from '../services/monologue';
 import { getBiomeForDistance } from '../services/biomes';
+import { MountainTerrain } from '../services/terrain';
+import { LivingWorldSystem } from '../services/livingWorld';
+import { StickmanRenderer } from '../services/stickmanRenderer';
 
 interface SisyphusCanvasProps {
   status: GameStatus;
@@ -63,14 +66,15 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
   const particlesRef = useRef<Particle[]>([]);
   const boulderAngleRef = useRef<number>(0);
   const strainTrembleRef = useRef<number>(0);
-  const crashBoulderPosRef = useRef<{ x: number; y: number; vx: number; vy: number } | null>(null);
+  const crashRollOffsetRef = useRef<number>(0);
   const lastTimeRef = useRef<number>(performance.now());
   const soundThrottleRef = useRef<number>(0);
   const lastStepPhaseRef = useRef<number>(0);
 
-  // Atmospheric Systems
+  // Atmospheric & Living Systems
   const birdSystemRef = useRef<BirdSystem>(new BirdSystem());
   const foregroundFoliageRef = useRef<ForegroundFoliage>(new ForegroundFoliage());
+  const livingWorldRef = useRef<LivingWorldSystem>(new LivingWorldSystem());
   const starsRef = useRef<Star[]>([]);
 
   // Slope geometry constants
@@ -92,21 +96,30 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
     starsRef.current = stars;
   }, []);
 
-  // Add dust and stone flake particles
-  const spawnDust = useCallback((x: number, y: number, count = 3, isSevere = false) => {
+  // Add dust, stone flakes, and mineral friction sparks
+  const spawnDust = useCallback((x: number, y: number, count = 3, isSevere = false, isSpark = false) => {
     for (let i = 0; i < count; i++) {
-      const angle = SLOPE_ANGLE + Math.PI + (Math.random() - 0.5) * 0.8;
-      const speed = isSevere ? 2.5 + Math.random() * 4 : 1.2 + Math.random() * 2;
+      const angle = SLOPE_ANGLE + Math.PI + (Math.random() - 0.5) * 1.1;
+      const speed = isSpark
+        ? 3.5 + Math.random() * 4.5
+        : isSevere
+        ? 2.5 + Math.random() * 4
+        : 1.2 + Math.random() * 2;
+      
+      const color = isSpark
+        ? Math.random() > 0.5 ? '#FBBF24' : '#F59E0B' // amber/gold mineral friction sparks
+        : Math.random() > 0.4 ? '#8C8273' : '#3D372F';
+
       particlesRef.current.push({
         x: x + (Math.random() - 0.5) * 16,
         y: y + (Math.random() - 0.5) * 8,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        size: isSevere ? 2.2 + Math.random() * 3.2 : 1.4 + Math.random() * 2.2,
-        alpha: 0.85,
-        color: Math.random() > 0.4 ? '#8C8273' : '#3D372F',
+        size: isSpark ? 1.0 + Math.random() * 1.5 : isSevere ? 2.2 + Math.random() * 3.2 : 1.4 + Math.random() * 2.2,
+        alpha: isSpark ? 1.0 : 0.85,
+        color,
         life: 0,
-        maxLife: isSevere ? 36 + Math.random() * 25 : 22 + Math.random() * 18
+        maxLife: isSpark ? 12 + Math.random() * 10 : isSevere ? 36 + Math.random() * 25 : 22 + Math.random() * 18
       });
     }
   }, []);
@@ -174,17 +187,24 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
         soundEngine.playDistantBird();
       });
 
-      // Update boulder rotation
+      // Update living encounters (ravens, wanderers, ibex, watchers, wisps)
+      livingWorldRef.current.update(activeDist, dt, now);
+
+      // Update boulder rotation & crash tumbling
       if (status === 'PUSHING') {
         boulderAngleRef.current += dt * 3.8 * seasonConfig.pushSpeedMod;
+        crashRollOffsetRef.current = 0;
       } else if (status === 'SLIPPING') {
         boulderAngleRef.current -= dt * 4.2;
         strainTrembleRef.current = (Math.random() - 0.5) * 4;
+        crashRollOffsetRef.current = 0;
       } else if (status === 'CRASHING') {
-        boulderAngleRef.current -= dt * 16.0;
+        boulderAngleRef.current -= dt * 18.0;
         strainTrembleRef.current = (Math.random() - 0.5) * 6;
+        crashRollOffsetRef.current += dt * 340;
       } else {
         strainTrembleRef.current = 0;
+        crashRollOffsetRef.current = 0;
       }
 
       // 1. Draw Atmospheric Sky Gradient with Biome Color Modulation
@@ -277,62 +297,60 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       // 3b. Midground Silhouettes (Ledges, distant pines)
       foregroundFoliageRef.current.renderMidground(ctx, width, height, activeDist, now);
 
-      // 4. Slope Geometry
+      // 4. Slope Geometry & Living Mountain Terrain
       const slopeStartX = -50;
       const slopeStartY = height * 0.82;
-      const slopeEndX = width + 50;
-      const slopeEndY = slopeStartY - (slopeEndX - slopeStartX) * Math.tan(SLOPE_ANGLE);
+      const scrollOffset = activeDist * 22;
 
-      // Draw Main Mountain Mass
-      ctx.fillStyle = atmosphere.timeOfDay === 'NIGHT' ? '#0C0A0D' : '#141210';
-      ctx.beginPath();
-      ctx.moveTo(slopeStartX, slopeStartY);
-      ctx.lineTo(slopeEndX, slopeEndY);
-      ctx.lineTo(slopeEndX, height);
-      ctx.lineTo(slopeStartX, height);
-      ctx.closePath();
-      ctx.fill();
+      // Draw Main Mountain Mass with stepped stone flags & Doré copperplate crosshatching
+      MountainTerrain.renderTerrain(
+        ctx,
+        width,
+        height,
+        slopeStartX,
+        slopeStartY,
+        scrollOffset,
+        atmosphere.isNight,
+        seasonConfig.groundColorTint
+      );
 
-      // Slope Rocky Rim Line & Crosshatch Crags
-      ctx.strokeStyle = atmosphere.timeOfDay === 'NIGHT' ? '#4A4852' : '#6A5E50';
-      ctx.lineWidth = 3.2;
-      ctx.beginPath();
-      ctx.moveTo(slopeStartX, slopeStartY);
-      ctx.lineTo(slopeEndX, slopeEndY);
-      ctx.stroke();
+      // Helper function to query organic terrain height at any screen X
+      const getTerrainY = (screenX: number) =>
+        MountainTerrain.getScreenTerrainY(screenX, slopeStartY, slopeStartX, scrollOffset);
 
-      // Dynamic Weather & Seasonal Overlays on Slope
+      // Dynamic Weather & Seasonal Overlays on the rocky path
       if (season === 'WINTER' || biome.type === 'VERGLAS_WALL') {
-        // Glistening Verglas / Black Ice on the granite slope
         ctx.strokeStyle = 'rgba(235, 245, 255, 0.85)';
-        ctx.lineWidth = 3.5;
+        ctx.lineWidth = 3.2;
         ctx.beginPath();
-        ctx.moveTo(slopeStartX, slopeStartY - 1);
-        ctx.lineTo(slopeEndX, slopeEndY - 1);
+        for (let ic = -30; ic < width + 30; ic += 12) {
+          const icY = getTerrainY(ic);
+          if (ic === -30) ctx.moveTo(ic, icY - 1);
+          else ctx.lineTo(ic, icY - 1);
+        }
         ctx.stroke();
 
         // Stalactites / Icicles
         ctx.fillStyle = 'rgba(235, 245, 255, 0.8)';
         for (let ic = 25; ic < width; ic += 44) {
-          const icX = ic;
-          const icY = slopeStartY - (icX - slopeStartX) * Math.tan(SLOPE_ANGLE);
+          const icY = getTerrainY(ic);
           ctx.beginPath();
-          ctx.moveTo(icX, icY);
-          ctx.lineTo(icX + 2.5, icY + 12);
-          ctx.lineTo(icX + 5, icY);
+          ctx.moveTo(ic, icY);
+          ctx.lineTo(ic + 2.5, icY + 12);
+          ctx.lineTo(ic + 5, icY);
           ctx.fill();
         }
       } else if (season === 'AUTUMN') {
         for (let l = 0; l < 14; l++) {
           const lx = (l * 65 + (activeDist * 14)) % (width + 50);
-          const ly = slopeStartY - (lx - slopeStartX) * Math.tan(SLOPE_ANGLE) + 2;
+          const ly = getTerrainY(lx) + 2;
           ctx.fillStyle = l % 2 === 0 ? '#B45309' : '#D97706';
           ctx.fillRect(lx, ly, 4.5, 2.2);
         }
       } else if (season === 'SPRING') {
         for (let f = 0; f < 12; f++) {
           const fx = (f * 70) % (width + 40);
-          const fy = slopeStartY - (fx - slopeStartX) * Math.tan(SLOPE_ANGLE) + 3;
+          const fy = getTerrainY(fx) + 3;
           ctx.fillStyle = f % 2 === 0 ? '#4ADE80' : '#F472B6';
           ctx.beginPath();
           ctx.arc(fx, fy, 1.8, 0, Math.PI * 2);
@@ -346,7 +364,7 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       ctx.lineWidth = 2;
       for (let s = 0; s < numScuffs; s++) {
         const scuffX = (s * 45) % (width + 60);
-        const scuffY = slopeStartY - (scuffX - slopeStartX) * Math.tan(SLOPE_ANGLE) + 8;
+        const scuffY = getTerrainY(scuffX) + 8;
         ctx.beginPath();
         ctx.moveTo(scuffX, scuffY);
         ctx.lineTo(scuffX - 12, scuffY + 6);
@@ -364,7 +382,7 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
 
       for (let m = -1; m <= 3; m++) {
         const mx = width * 0.45 + m * milestoneSpacing - pixelOffset;
-        const my = slopeStartY - (mx - slopeStartX) * Math.tan(SLOPE_ANGLE);
+        const my = getTerrainY(mx);
         const markerVal = baseMarkerMeters + m * 10;
         if (markerVal >= 0 && mx > 30 && mx < width - 30) {
           ctx.fillRect(mx - 8, my - 2, 16, 4);
@@ -381,7 +399,7 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       visibleCairns.forEach((cairn) => {
         const cairnPixelX = width * 0.45 + (cairn.distance - activeDist) * 16;
         if (cairnPixelX > -40 && cairnPixelX < width + 40) {
-          const cairnY = slopeStartY - (cairnPixelX - slopeStartX) * Math.tan(SLOPE_ANGLE);
+          const cairnY = getTerrainY(cairnPixelX);
           ctx.save();
           ctx.translate(cairnPixelX, cairnY);
           // Draw stacked stones cairn
@@ -422,129 +440,62 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
         }
       });
 
-      // 5. Sisyphus and Boulder coordinates on slope
+      // 4c. Living Mountain Encounters (Ravens, descending pilgrims, ibex on crags, watchers, wisps)
+      livingWorldRef.current.render(ctx, width, height, activeDist, getTerrainY, now, lang);
+
+      // 5. Sisyphus and Boulder coordinates on organic terrain
       const playerX = width * 0.42;
-      const playerY = slopeStartY - (playerX - slopeStartX) * Math.tan(SLOPE_ANGLE);
+      const playerY = getTerrainY(playerX);
 
       const normalX = Math.sin(SLOPE_ANGLE);
       const normalY = -Math.cos(SLOPE_ANGLE);
 
-      const boulderCenterX = playerX + Math.cos(SLOPE_ANGLE) * (BOULDER_RADIUS * 0.95) + normalX * BOULDER_RADIUS + strainTrembleRef.current;
-      const boulderCenterY = playerY - Math.sin(SLOPE_ANGLE) * (BOULDER_RADIUS * 0.95) + normalY * BOULDER_RADIUS;
+      const crashOffset = status === 'CRASHING' ? -crashRollOffsetRef.current : 0;
+      const boulderContactX = playerX + Math.cos(SLOPE_ANGLE) * (BOULDER_RADIUS * 0.95) + crashOffset;
+      const boulderGroundY = getTerrainY(boulderContactX);
 
-      // Dust & particles
-      if (status === 'PUSHING' && Math.random() > 0.4) {
+      const boulderCenterX = boulderContactX + normalX * BOULDER_RADIUS + strainTrembleRef.current;
+      const boulderCenterY = boulderGroundY + normalY * BOULDER_RADIUS;
+
+      // Realistic Rock-to-Ground Compression & Dust/Sparks at Boulder Contact
+      if (status === 'PUSHING' && Math.random() > 0.25) {
+        // Heel dust
         spawnDust(playerX - 22, playerY, 1, false);
+        // Heavy ground crush dust at exact boulder contact point
+        spawnDust(boulderContactX, boulderGroundY, 2, false);
+        // High-pressure mineral friction sparks (showing immense boulder weight)
+        if (Math.random() > 0.65) {
+          spawnDust(boulderContactX, boulderGroundY, 2, false, true);
+        }
       } else if (status === 'SLIPPING') {
-        spawnDust(boulderCenterX, boulderCenterY + BOULDER_RADIUS * 0.7, 2, true);
+        spawnDust(boulderContactX, boulderGroundY, 3, true);
+        spawnDust(boulderContactX, boulderGroundY, 2, true, true);
       } else if (status === 'CRASHING') {
         spawnDust(boulderCenterX, boulderCenterY + BOULDER_RADIUS * 0.7, 4, true);
+        spawnDust(boulderContactX, boulderGroundY, 3, true, true);
       }
 
-      // 6. Draw Sisyphus Silhouette (Articulated Anatomy)
+      // Ground Ambient Occlusion at exact boulder foot contact
+      ctx.save();
+      ctx.fillStyle = 'rgba(12, 10, 8, 0.65)';
+      ctx.beginPath();
+      ctx.ellipse(boulderContactX, boulderGroundY + 1, BOULDER_RADIUS * 0.42, 4.5, -SLOPE_ANGLE, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // 6. Draw Sisyphus as Classic Articulated IK Stickman Pushing the Boulder
       ctx.save();
       ctx.translate(playerX, playerY);
+      ctx.rotate(-SLOPE_ANGLE);
 
-      if (status === 'DESCENDING') {
-        // Sisyphus faces downhill (facing left/down the slope), walking with measured dignity
-        ctx.scale(-1, 1);
-        ctx.rotate(-SLOPE_ANGLE);
-
-        ctx.fillStyle = '#050505';
-        ctx.strokeStyle = '#050505';
-        ctx.lineWidth = 6;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        const stepWalk = Math.sin(now * 0.0035) * 12;
-
-        // Legs walking steady
-        ctx.beginPath();
-        ctx.moveTo(-6, -2);
-        ctx.lineTo(-4 + stepWalk * 0.5, -20);
-        ctx.lineTo(-6 + stepWalk, -36);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(8, -2);
-        ctx.lineTo(6 - stepWalk * 0.5, -20);
-        ctx.lineTo(2 - stepWalk, -36);
-        ctx.stroke();
-
-        // Upright, noble torso
-        ctx.beginPath();
-        ctx.moveTo(0, -36);
-        ctx.lineTo(2, -56);
-        ctx.lineWidth = 11;
-        ctx.stroke();
-
-        // Head looking ahead/slightly down at the valley
-        ctx.beginPath();
-        ctx.arc(4, -64, 7.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Relaxed arms hanging by his sides
-        ctx.lineWidth = 5;
-        ctx.beginPath();
-        ctx.moveTo(0, -52);
-        ctx.lineTo(-6 - stepWalk * 0.3, -38);
-        ctx.lineTo(-8, -26);
-        ctx.stroke();
-      } else {
-        // Ascending / Struggling against the stone
-        ctx.rotate(-SLOPE_ANGLE);
-        ctx.fillStyle = '#060606';
-        ctx.strokeStyle = '#060606';
-
-        const lean = isPushing ? 0.38 : (status === 'SLIPPING' ? -0.12 : 0.05);
-        const strideSwing = isPushing ? Math.sin(activeDist * 3.4) * 8 : 0;
-
-        ctx.lineWidth = 7;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        // Back leg driving hard
-        ctx.beginPath();
-        ctx.moveTo(-32 + strideSwing, -2);
-        ctx.lineTo(-20 + strideSwing * 0.5, -18);
-        ctx.lineTo(-8, -32);
-        ctx.stroke();
-
-        // Front leg bent powerfully
-        ctx.beginPath();
-        ctx.moveTo(0 - strideSwing, -2);
-        ctx.lineTo(8 - strideSwing * 0.5, -20);
-        ctx.lineTo(-4, -32);
-        ctx.stroke();
-
-        // Muscular torso leaning into the boulder
-        ctx.beginPath();
-        ctx.moveTo(-6, -32);
-        ctx.lineTo(16 + lean * 18, -48);
-        ctx.lineWidth = 11;
-        ctx.stroke();
-
-        // Head bowed down with neck tension
-        ctx.beginPath();
-        ctx.arc(22 + lean * 20, -52, 7.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Arms reaching forward with palm grip
-        ctx.lineWidth = 6;
-        ctx.beginPath();
-        ctx.moveTo(14 + lean * 16, -45);
-        if (isPushing) {
-          ctx.lineTo(32, -43);
-          ctx.lineTo(44, -38);
-        } else if (status === 'SLIPPING') {
-          ctx.lineTo(26, -38);
-          ctx.lineTo(38, -30);
-        } else {
-          ctx.lineTo(24, -36);
-          ctx.lineTo(36, -34);
-        }
-        ctx.stroke();
-      }
+      StickmanRenderer.renderStickman(
+        ctx,
+        status,
+        isPushing,
+        activeDist,
+        now,
+        BOULDER_RADIUS
+      );
 
       ctx.restore();
 

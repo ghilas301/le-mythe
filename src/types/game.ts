@@ -1,5 +1,7 @@
 export type Language = 'en' | 'fr';
 
+export type GameMode = 'ABSURD' | 'ZEN';
+
 export type GameStatus = 'IDLE' | 'PUSHING' | 'SLIPPING' | 'CRASHING' | 'DESCENDING' | 'GAME_OVER';
 
 export type Season = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER';

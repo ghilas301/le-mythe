@@ -43,8 +43,15 @@ export interface Translations {
   navWhy: string;
   navChecklist: string;
   navMonetization: string;
+  navCodex: string;
   downloadAction: string;
   installAppAction: string;
+
+  // Game Modes
+  modeAbsurdTitle: string;
+  modeAbsurdDesc: string;
+  modeZenTitle: string;
+  modeZenDesc: string;
 
   // Sections
   howToPlayTitle: string;
@@ -153,8 +160,15 @@ export const translations: Record<Language, Translations> = {
     navWhy: 'Why This Exists',
     navChecklist: 'Launch Checklist',
     navMonetization: 'Monetization Architecture',
+    navCodex: 'Mountain Codex',
     downloadAction: 'Download',
     installAppAction: 'Install App',
+
+    // Game Modes
+    modeAbsurdTitle: 'The Absurd (Classic)',
+    modeAbsurdDesc: 'Manual push. Gravity reclaims the stone on release.',
+    modeZenTitle: 'Stoic Meditation (Zen)',
+    modeZenDesc: 'Peaceful steady stroll. Contemplate the path without loss.',
 
     howToPlayTitle: 'Rules & Controls of the Absurd',
     howToPlayRule1Title: 'Continuous Exertion',
@@ -260,8 +274,15 @@ export const translations: Record<Language, Translations> = {
     navWhy: 'Pourquoi ce Jeu',
     navChecklist: 'Checklist de Lancement',
     navMonetization: 'Modèle Économique',
+    navCodex: 'Codex de la Montagne',
     downloadAction: 'Télécharger',
     installAppAction: 'Installer l\'App',
+
+    // Game Modes
+    modeAbsurdTitle: 'L\'Absurde (Classique)',
+    modeAbsurdDesc: 'Poussée manuelle. La gravité réclame la pierre dès l\'arrêt.',
+    modeZenTitle: 'Méditation Stoïcienne (Zen)',
+    modeZenDesc: 'Marche paisible et contemplative. Pas de chute, juste le sentier et la musique.',
 
     howToPlayTitle: 'Règles et Commandes de l’Absurde',
     howToPlayRule1Title: 'Effort Continu',

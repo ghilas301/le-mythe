@@ -112,25 +112,37 @@ class SoundEngine {
       this.musicGain.gain.setValueAtTime(0.001, ctx.currentTime);
       this.musicGain.gain.linearRampToValueAtTime(0.18 * this.masterVolume, ctx.currentTime + 3.0);
       this.musicGain.connect(ctx.destination);
+    } else {
+      try {
+        this.musicGain.gain.cancelScheduledValues(ctx.currentTime);
+        this.musicGain.gain.setValueAtTime(this.musicGain.gain.value, ctx.currentTime);
+        this.musicGain.gain.linearRampToValueAtTime(0.18 * this.masterVolume, ctx.currentTime + 2.0);
+      } catch {}
     }
 
-    // Struggle Chords: Dm, Bb, F, Am
-    const struggleChords = [
-      [73.42, 110.0, 146.83, 220.0, 293.66], // D2, A2, D3, A3, D4
-      [58.27, 116.54, 146.83, 174.61, 233.08], // Bb1, Bb2, D3, F3, Bb3
-      [87.31, 130.81, 174.61, 220.0, 261.63], // F2, C3, F3, A3, C4
-      [55.0, 110.0, 164.81, 220.0, 261.63]   // A1, A2, E3, A3, C4
+    // 432 Hz Meditative Harmonies (Deep Relaxation & Contemplation)
+    // Rooted in 432 Hz Pythagorean / Solfeggio tuning (A=432 Hz):
+    // 108 Hz (A2), 162 Hz (E3), 216 Hz (A3), 270 Hz (C#4), 324 Hz (E4), 432 Hz (A4)
+    const meditationChords = [
+      // 1. Serene Stillness (A minor 9 in 432Hz)
+      [108.0, 162.0, 216.0, 256.8, 324.0, 432.0],
+      // 2. Open Sky (F maj7 add9 in 432Hz)
+      [85.6, 128.5, 171.2, 216.0, 256.8, 342.5],
+      // 3. Ancient Earth (C maj9 in 432Hz)
+      [128.5, 162.0, 192.8, 240.8, 288.0, 385.7],
+      // 4. Pure Presence (D suspended / 432Hz)
+      [72.0, 144.0, 216.0, 288.0, 324.0, 432.0]
     ];
 
-    // Serene Contemplation Chords during Sisyphus's conscious Walk Down (D major, Bm, G, A)
+    // Serene Contemplation Chords during Sisyphus's conscious Walk Down
     const descentChords = [
-      [73.42, 110.0, 146.83, 220.0, 277.18], // D2, A2, D3, A3, C#4 (maj7)
-      [61.74, 123.47, 146.83, 185.00, 246.94], // B1, B2, D3, F#3, B3
-      [98.0, 146.83, 196.0, 246.94, 293.66],  // G2, D3, G3, B3, D4
-      [55.0, 110.0, 164.81, 220.0, 277.18]   // A1, A2, E3, A3, C#4
+      [108.0, 162.0, 216.0, 270.0, 324.0, 432.0], // A major add9
+      [96.2, 144.3, 192.5, 240.6, 288.7, 385.0],  // F# minor 7
+      [128.5, 171.2, 216.0, 256.8, 342.5, 432.0], // D major 7
+      [81.0, 121.5, 162.0, 216.0, 243.0, 324.0]   // E sus4
     ];
 
-    const currentProgression = descentMode ? descentChords : struggleChords;
+    const currentProgression = descentMode ? descentChords : meditationChords;
     let chordIdx = 0;
 
     const playChord = () => {
@@ -139,38 +151,117 @@ class SoundEngine {
       const notes = currentProgression[chordIdx];
       chordIdx = (chordIdx + 1) % currentProgression.length;
 
+      // Every 2 chords, strike a soft resonant Tibetan singing bowl
+      if (chordIdx % 2 === 0) {
+        this.playTibetanSingingBowl(216);
+      } else if (Math.random() > 0.4) {
+        this.playZenChime();
+      }
+
       notes.forEach((freq, i) => {
         if (!this.ctx || !this.musicGain) return;
         const osc = this.ctx.createOscillator();
         const noteGain = this.ctx.createGain();
         const filter = this.ctx.createBiquadFilter();
 
-        osc.type = descentMode ? 'sine' : (i % 2 === 0 ? 'sine' : 'triangle');
+        // Warm pure sine waves for deep meditative relaxation
+        osc.type = i === 0 ? 'triangle' : 'sine';
         osc.frequency.setValueAtTime(freq, t);
-        osc.detune.setValueAtTime((Math.random() - 0.5) * 6, t);
-        osc.detune.linearRampToValueAtTime((Math.random() - 0.5) * 10, t + 8);
+        // Ultra subtle analog drift (0.3 Hz phase sweep)
+        osc.detune.setValueAtTime((Math.random() - 0.5) * 4, t);
+        osc.detune.linearRampToValueAtTime((Math.random() - 0.5) * 7, t + 9.5);
 
         filter.type = 'lowpass';
-        const cutoff = descentMode ? 500 + i * 80 : 280 + i * 70;
+        const cutoff = 360 + i * 65;
         filter.frequency.setValueAtTime(cutoff, t);
-        filter.frequency.linearRampToValueAtTime(cutoff + 120, t + 4);
-        filter.frequency.linearRampToValueAtTime(cutoff, t + 8);
+        filter.frequency.linearRampToValueAtTime(cutoff + 80, t + 4.5);
+        filter.frequency.linearRampToValueAtTime(cutoff, t + 9.5);
 
         noteGain.gain.setValueAtTime(0.001, t);
-        noteGain.gain.linearRampToValueAtTime((descentMode ? 0.09 : 0.07) / (i + 1), t + 3.0);
-        noteGain.gain.exponentialRampToValueAtTime(0.001, t + 8.6);
+        noteGain.gain.linearRampToValueAtTime((0.08 / (i * 0.7 + 1)) * this.masterVolume, t + 3.5);
+        noteGain.gain.exponentialRampToValueAtTime(0.001, t + 10.0);
 
         osc.connect(filter);
         filter.connect(noteGain);
         noteGain.connect(this.musicGain);
 
         osc.start(t);
-        osc.stop(t + 8.8);
+        osc.stop(t + 10.2);
       });
     };
 
     playChord();
-    this.musicInterval = window.setInterval(playChord, 8000);
+    this.musicInterval = window.setInterval(playChord, 9500);
+  }
+
+  /**
+   * Resonant Tibetan Singing Bowl Synthesizer (432 Hz harmonic ratio)
+   * Authentic multi-overtone metallic resonance with long tranquil decay
+   */
+  public playTibetanSingingBowl(fundamental = 216) {
+    if (this.isMuted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+
+    // Authentic singing bowl inharmonic overtone ratios (1.0, 2.76, 5.40, 8.93)
+    const partials = [
+      { ratio: 1.0, gain: 0.12, decay: 9.0 },
+      { ratio: 2.76, gain: 0.07, decay: 7.5 },
+      { ratio: 5.40, gain: 0.035, decay: 5.5 },
+      { ratio: 8.93, gain: 0.015, decay: 3.5 }
+    ];
+
+    partials.forEach((p) => {
+      if (!ctx) return;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(fundamental * p.ratio, t);
+      // Subtle vibrato (beating effect typical of hand-hammered singing bowls)
+      osc.detune.setValueAtTime(0, t);
+      osc.detune.linearRampToValueAtTime(Math.sin(p.ratio) * 6, t + p.decay);
+
+      gain.gain.setValueAtTime(0.001, t);
+      gain.gain.linearRampToValueAtTime(p.gain * this.masterVolume, t + 0.08);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + p.decay);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(t);
+      osc.stop(t + p.decay + 0.1);
+    });
+  }
+
+  /**
+   * Zen Wind Chime / Koshi Bell Sparkle
+   */
+  public playZenChime() {
+    if (this.isMuted) return;
+    const ctx = this.initContext();
+    if (!ctx) return;
+    const t = ctx.currentTime;
+
+    const chimeFreqs = [864, 1080, 1296, 1728, 2160];
+    const freq = chimeFreqs[Math.floor(Math.random() * chimeFreqs.length)];
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.linearRampToValueAtTime(0.04 * this.masterVolume, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 3.2);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(t);
+    osc.stop(t + 3.3);
   }
 
   public stopAmbientMusic() {

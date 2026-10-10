@@ -45,15 +45,17 @@ Ce document inventorie l'ensemble des ressources externes, typographies et archi
 
 ## 3. Conception Sonore (Web Audio API)
 
-### Moteur Sonore Procédural Spectral (`src/services/audio.ts`)
-- **Auteur** : Moteur sonore original synthétisé via l'API Web Audio native du navigateur
-- **Licence** : Apache License 2.0
-- **Composition des timbres** :
+### Moteur Sonore & Musique de Méditation Procédurale 432 Hz (`src/services/audio.ts`)
+- **Auteur** : Moteur sonore et composition méditative originale développés pour *Le Mythe de Sisyphe*
+- **Licence** : Apache License 2.0 / CC0 Public Domain Dedication (100% Libre de droit, royalty-free)
+- **Composition des timbres & paysage méditatif** :
+  - **Musique de Méditation 432 Hz** : Nappes harmoniques pures accordées sur la fréquence de résonance 432 Hz (La de Verdi / diapason pythagoricien), enchaînements d'accords contemplatifs de sérénité (Am9, Fmaj7add9, Cmaj9, Dsus).
+  - **Bols Tibétains Résonants** : Synthèse d'harmoniques inharmoniques (ratios 1.0, 2.76, 5.40, 8.93) avec battement lent et décroissance exponentielle sur 9 secondes.
+  - **Carillons Zen (Koshi Chimes)** : Partiels cristallins haute fréquence (864 Hz, 1296 Hz, 2160 Hz) évoquant la brise sur les pierres de prière.
   - **Vent de haute montagne** : Bruit blanc généré par buffer de convolution avec filtre passe-bande résonant asservi à l'altitude réelle.
   - **Friction minérale & craquements** : Double oscillateur triangulaire basse fréquence couplé à des impulsions stochastiques de gravier.
-  - **Nappe harmonique Dm/Bb/F/Am** : Synthèse additive soustractive multi-oscillateurs avec dérive de phase analogique lente.
-  - **Respiration & pulsation cardiaque** : Filtres formants modulés par l'état d'effort et d'épuisement de Sisyphe.
-- **Conformité** : Zéro dépendance à des banques de sons tierces restreintes ou protégées par copyright. Fonctionnement 100% autonome et hors-ligne.
+  - **Respiration & pas physiques** : Filtres formants d'effort humain et impacts de semelle sur le roc.
+- **Conformité légale** : Zéro dépendance à des banques de sons tierces restreintes ou protégées par copyright. Fonctionnement 100% autonome, infini, sans coupure et libre de droit.
 
 ---
 

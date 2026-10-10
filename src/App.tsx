@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GameStatus, GameStats, RunSummary, Language, AdSimulationConfig } from './types/game';
+import { GameStatus, GameStats, RunSummary, Language, GameMode, AdSimulationConfig } from './types/game';
 import { getSeasonForAttempt } from './services/seasons';
 import { translations, getAbsurdRemark } from './services/i18n';
 import { soundEngine } from './services/audio';
@@ -13,6 +13,7 @@ import { GameHUD } from './components/GameHUD';
 import { GameOverModal } from './components/GameOverModal';
 import { ShareCardModal } from './components/ShareCardModal';
 import { EditorialSections } from './components/EditorialSections';
+import { CodexSection } from './components/CodexSection';
 import { DownloadModal } from './components/DownloadModal';
 import { Volume2, VolumeX, Globe, Shield, Sparkles, Download, Music, Footprints } from 'lucide-react';
 
@@ -36,6 +37,7 @@ export default function App() {
   const [showPrivacy, setShowPrivacy] = useState<boolean>(false);
   const [showDownloadModal, setShowDownloadModal] = useState<boolean>(false);
   const [activeCertificate, setActiveCertificate] = useState<RunSummary | null>(null);
+  const [gameMode, setGameMode] = useState<GameMode>('ABSURD');
 
   // Core Game State
   const [status, setStatus] = useState<GameStatus>('IDLE');
@@ -129,6 +131,7 @@ export default function App() {
   const graceRef = useRef<number>(TOLERANCE_WINDOW_MS);
   const lastTickRef = useRef<number>(performance.now());
   const maxDistanceRef = useRef<number>(stats.maxDistance);
+  const gameModeRef = useRef<GameMode>('ABSURD');
 
   // Sync refs with state
   useEffect(() => {
@@ -138,7 +141,8 @@ export default function App() {
     timeRef.current = elapsedTime;
     pushCountRef.current = pushCount;
     maxDistanceRef.current = stats.maxDistance;
-  }, [isPushing, status, currentDistance, elapsedTime, pushCount, stats.maxDistance]);
+    gameModeRef.current = gameMode;
+  }, [isPushing, status, currentDistance, elapsedTime, pushCount, stats.maxDistance, gameMode]);
 
   // Main Physics & Loop Handler
   const triggerCrash = useCallback(() => {
@@ -322,23 +326,33 @@ export default function App() {
             setStatus('PUSHING');
           }
         } else {
-          graceRef.current -= dt * 1000;
-          setToleranceRemainingMs(Math.max(0, graceRef.current));
-
-          if (graceRef.current <= 0) {
-            if (statusRef.current !== 'SLIPPING') {
-              statusRef.current = 'SLIPPING';
-              setStatus('SLIPPING');
-              soundEngine.playSlipWarning();
+          // If in ZEN meditation mode, releasing does not crash: the stone remains peacefully braced
+          if (gameModeRef.current === 'ZEN') {
+            graceRef.current = seasonConfig.graceWindowMs;
+            setToleranceRemainingMs(seasonConfig.graceWindowMs);
+            if (statusRef.current === 'SLIPPING') {
+              statusRef.current = 'PUSHING';
+              setStatus('PUSHING');
             }
+          } else {
+            graceRef.current -= dt * 1000;
+            setToleranceRemainingMs(Math.max(0, graceRef.current));
 
-            const gravitySpeed = 6.5 * seasonConfig.slipGravityMod;
-            distanceRef.current -= gravitySpeed * dt;
-            setCurrentDistance(Math.max(0, distanceRef.current));
+            if (graceRef.current <= 0) {
+              if (statusRef.current !== 'SLIPPING') {
+                statusRef.current = 'SLIPPING';
+                setStatus('SLIPPING');
+                soundEngine.playSlipWarning();
+              }
 
-            if (distanceRef.current <= 0.1 || graceRef.current <= -900) {
-              triggerCrash();
-              return;
+              const gravitySpeed = 6.5 * seasonConfig.slipGravityMod;
+              distanceRef.current -= gravitySpeed * dt;
+              setCurrentDistance(Math.max(0, distanceRef.current));
+
+              if (distanceRef.current <= 0.1 || graceRef.current <= -900) {
+                triggerCrash();
+                return;
+              }
             }
           }
         }
@@ -422,14 +436,17 @@ export default function App() {
           <button
             type="button"
             onClick={handleToggleMusic}
-            className={`p-2 rounded-lg border transition-colors cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-colors cursor-pointer ${
               isMusicOn
                 ? 'bg-amber-950/40 border-amber-700/60 text-amber-300'
                 : 'bg-[#181614] border-[#2E2820] text-[#696155] hover:text-[#A89E8F]'
             }`}
-            title="Ambient Music"
+            title={lang === 'fr' ? 'Musique de Méditation 432 Hz (Libre de droit)' : '432 Hz Meditative Music (Royalty-free)'}
           >
-            <Music className="w-4 h-4" />
+            <Music className="w-3.5 h-3.5" />
+            <span className="text-[11px] font-cinzel font-medium hidden sm:inline">
+              {lang === 'fr' ? (isMusicOn ? 'Méditation 432Hz' : 'Musique Off') : (isMusicOn ? 'Meditation 432Hz' : 'Music Off')}
+            </span>
           </button>
 
           <button
@@ -508,7 +525,12 @@ export default function App() {
           }}
           status={status}
           isPushing={isPushing}
+          gameMode={gameMode}
+          onSelectMode={(m) => setGameMode(m)}
           t={t}
+          lang={lang}
+          isMusicOn={isMusicOn}
+          onToggleMusic={handleToggleMusic}
           onPushStart={handlePushStart}
           onPushEnd={handlePushEnd}
           onSkipDescent={handleSkipDescent}
@@ -526,6 +548,8 @@ export default function App() {
         <nav aria-label="Page Sections" className="flex flex-wrap items-center justify-center gap-4 text-xs text-[#9E9383] mt-8 pt-4 border-t border-[#221D17]">
           <a href="#how-to-play" className="hover:text-amber-400 transition-colors">{t.navHowToPlay}</a>
           <span>·</span>
+          <a href="#codex" className="hover:text-amber-400 transition-colors">{t.navCodex}</a>
+          <span>·</span>
           <a href="#myth" className="hover:text-amber-400 transition-colors">{t.navMyth}</a>
           <span>·</span>
           <a href="#why" className="hover:text-amber-400 transition-colors">{t.navWhy}</a>
@@ -533,7 +557,10 @@ export default function App() {
           <a href="#faq" className="hover:text-amber-400 transition-colors">{t.faqTitle}</a>
         </nav>
 
-        {/* 3. Deep Editorial & Philosophical Sections */}
+        {/* 3. Mountain Codex (Living Encounters & Spirits) */}
+        <CodexSection t={t} lang={lang} />
+
+        {/* 4. Deep Editorial & Philosophical Sections */}
         <EditorialSections t={t} />
 
       </main>
