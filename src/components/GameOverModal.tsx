@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RunSummary, AdSimulationConfig, EventBadge } from '../types/game';
 import { Translations } from '../services/i18n';
 import { RotateCcw, Share2, Award, Check, ExternalLink, Trophy, ShieldCheck } from 'lucide-react';
 import { TIMED_EVENTS } from '../services/events';
-import { triggerRestartAds } from '../services/adManager';
+import { triggerRestartAds, triggerGameOverAds } from '../services/adManager';
 
 interface GameOverModalProps {
   summary: RunSummary;
@@ -26,6 +26,11 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const eventConfig = summary.event ? TIMED_EVENTS[summary.event] : null;
+
+  // Activer immédiatement la publicité dès l'apparition de l'écran de fin de partie
+  useEffect(() => {
+    triggerGameOverAds();
+  }, []);
 
   const handleShareText = async () => {
     const eventText = eventConfig ? ` [Défi: ${eventConfig.titleFr}]` : '';

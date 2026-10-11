@@ -1,11 +1,12 @@
 /**
  * Ad Manager Service
- * Handles conditional delayed loading of Social Bar and Popunder ad scripts.
+ * Gère l'activation des scripts publicitaires (Social Bar & Popunder)
+ * spécifiquement au moment de perdre la partie (Game Over / Chute).
  * 
- * Rules:
- * - NO ad scripts loaded on initial page visit / landing.
- * - Scripts are injected exclusively when the player finishes a game (loses)
- *   and clicks "Recommencer" (restart).
+ * Règles :
+ * - Aucun script publicitaire n'est injecté au chargement initial pour garantir un chargement rapide.
+ * - Dès que le joueur perd la partie (chute du rocher / Game Over), les scripts
+ *   sont immédiatement activés et attachés au DOM.
  */
 
 const SOCIAL_BAR_SCRIPT_SRC = 'https://insensitiveshoweraudible.com/1a/ef/aa/1aefaa036598d0510220613bcd476ee3.js';
@@ -15,27 +16,30 @@ let isSocialBarInjected = false;
 let isPopunderInjected = false;
 
 /**
- * Injects Social Bar and Popunder scripts into the DOM when restarting the game.
- * Must be triggered directly by the user's "Recommencer" click action.
+ * Active les scripts publicitaires au moment de perdre la partie.
+ * Injecte la Social Bar et le Popunder pour qu'ils s'activent dès l'écran de défaite.
  */
-export function triggerRestartAds(): void {
+export function triggerGameOverAds(): void {
   if (typeof document === 'undefined') return;
 
   try {
-    // 1. Inject Social Bar if not already present
-    if (!isSocialBarInjected && !document.querySelector(`script[src="${SOCIAL_BAR_SCRIPT_SRC}"]`)) {
+    const targetParent = document.body || document.head;
+    if (!targetParent) return;
+
+    // 1. Injection de la Social Bar
+    const existingSocial = document.querySelector(`script[src="${SOCIAL_BAR_SCRIPT_SRC}"]`);
+    if (!existingSocial) {
       const socialScript = document.createElement('script');
       socialScript.type = 'text/javascript';
       socialScript.src = SOCIAL_BAR_SCRIPT_SRC;
       socialScript.async = true;
       socialScript.dataset.adFormat = 'social-bar';
-      document.body.appendChild(socialScript);
+      targetParent.appendChild(socialScript);
       isSocialBarInjected = true;
     }
 
-    // 2. Inject Popunder
-    // For popunder scripts, we ensure the script is attached during the user interaction.
-    // If it was already injected, re-inserting can refresh the trigger state for subsequent runs.
+    // 2. Injection du Popunder
+    // On réinitialise si nécessaire pour capter les interactions sur l'écran de fin de partie
     const existingPop = document.querySelector(`script[src="${POPUNDER_SCRIPT_SRC}"]`);
     if (existingPop) {
       existingPop.remove();
@@ -46,9 +50,16 @@ export function triggerRestartAds(): void {
     popScript.src = POPUNDER_SCRIPT_SRC;
     popScript.async = true;
     popScript.dataset.adFormat = 'popunder';
-    document.body.appendChild(popScript);
+    targetParent.appendChild(popScript);
     isPopunderInjected = true;
   } catch (error) {
-    console.warn('[AdManager] Error activating restart ads:', error);
+    console.warn('[AdManager] Erreur lors de l’activation de la publicité de défaite :', error);
   }
+}
+
+/**
+ * Déclencheur supplémentaire lors du clic sur Recommencer
+ */
+export function triggerRestartAds(): void {
+  triggerGameOverAds();
 }

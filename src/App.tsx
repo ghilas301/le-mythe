@@ -20,7 +20,7 @@ import { checkAndUnlockBadge, getAvalancheHazard } from './services/events';
 import { silentWatcherEngine } from './services/watcher';
 import { saveLocalRun } from './services/indexedDb';
 import { submitRunToCloud, getOrCreateDeviceId } from './services/firebase';
-import { triggerRestartAds } from './services/adManager';
+import { triggerRestartAds, triggerGameOverAds } from './services/adManager';
 import { Volume2, VolumeX, Globe, Shield, Sparkles, Download, Music, Footprints, Trophy } from 'lucide-react';
 
 const TOLERANCE_WINDOW_MS = 950; // ~0.95 seconds grace before gravity reclaims boulder
@@ -213,6 +213,9 @@ export default function App() {
     pushPulseUntilRef.current = 0;
     soundEngine.playCatastrophicRoll();
 
+    // Activer immédiatement le script publicitaire au moment de perdre
+    triggerGameOverAds();
+
     const finalDistance = distanceRef.current;
     const finalTime = timeRef.current;
     const finalPushes = pushCountRef.current;
@@ -304,6 +307,7 @@ export default function App() {
       setLastSummary(summary);
       setCurrentDistance(0);
       distanceRef.current = 0;
+      triggerGameOverAds();
     }, 850);
   }, [lang, stats, persistStats]);
 
