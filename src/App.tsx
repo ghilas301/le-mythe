@@ -20,6 +20,7 @@ import { checkAndUnlockBadge, getAvalancheHazard } from './services/events';
 import { silentWatcherEngine } from './services/watcher';
 import { saveLocalRun } from './services/indexedDb';
 import { submitRunToCloud, getOrCreateDeviceId } from './services/firebase';
+import { triggerRestartAds } from './services/adManager';
 import { Volume2, VolumeX, Globe, Shield, Sparkles, Download, Music, Footprints, Trophy } from 'lucide-react';
 
 const TOLERANCE_WINDOW_MS = 950; // ~0.95 seconds grace before gravity reclaims boulder
@@ -180,6 +181,9 @@ export default function App() {
 
   // Restart Handler
   const handleRestart = useCallback(() => {
+    if (statusRef.current === 'GAME_OVER') {
+      triggerRestartAds();
+    }
     setStatus('IDLE');
     statusRef.current = 'IDLE';
     setIsPushing(false);

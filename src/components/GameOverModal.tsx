@@ -3,6 +3,7 @@ import { RunSummary, AdSimulationConfig, EventBadge } from '../types/game';
 import { Translations } from '../services/i18n';
 import { RotateCcw, Share2, Award, Check, ExternalLink, Trophy, ShieldCheck } from 'lucide-react';
 import { TIMED_EVENTS } from '../services/events';
+import { triggerRestartAds } from '../services/adManager';
 
 interface GameOverModalProps {
   summary: RunSummary;
@@ -160,7 +161,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           {/* Main Restart Button (Prominent, unhindered) */}
           <button
             type="button"
-            onClick={onRestart}
+            onClick={() => {
+              triggerRestartAds();
+              onRestart();
+            }}
             className="w-full sm:flex-1 py-3 px-5 rounded-xl font-cinzel font-bold text-sm uppercase tracking-wider bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95"
           >
             <RotateCcw className="w-4 h-4" />
