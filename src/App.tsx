@@ -137,6 +137,13 @@ export default function App() {
     setIsMusicOn(on);
   };
 
+  // Mark app as mounted to dismiss preloader
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.getElementById('root')?.setAttribute('data-mounted', 'true');
+    }
+  }, []);
+
   // Refs for animation frame loop
   const isPushingRef = useRef<boolean>(false);
   const statusRef = useRef<GameStatus>('IDLE');

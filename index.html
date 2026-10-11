@@ -72,7 +72,32 @@
     </script>
   </head>
   <body class="bg-[#121110] text-[#E8E4DF] antialiased selection:bg-[#B45309] selection:text-white">
-    <div id="root"></div>
+    <div id="root">
+      <div id="app-preloader" style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #121110; color: #E8E4DF; font-family: 'Newsreader', Georgia, serif; text-align: center; padding: 24px; box-sizing: border-box;">
+        <div style="width: 52px; height: 52px; border-radius: 50%; border: 3px solid #2B251E; border-top-color: #D97706; border-right-color: #F59E0B; animation: eternal-spin 0.9s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite; margin-bottom: 20px;"></div>
+        <h1 style="font-family: 'Cinzel', serif; font-size: 22px; font-weight: 800; letter-spacing: 3px; margin: 0 0 8px 0; color: #F5EFE6; text-transform: uppercase;">The Eternal Push</h1>
+        <p id="preloader-msg" style="font-size: 13px; color: #9E9383; margin: 0; font-style: italic; max-width: 320px; line-height: 1.5;">Chargement de la montagne et des astres...</p>
+        <div id="preloader-troubleshoot" style="display: none; margin-top: 24px; flex-direction: column; align-items: center; gap: 10px;">
+          <p style="font-size: 11px; color: #E57373; margin: 0; font-family: monospace;">Le chargement prend plus de temps que prévu.</p>
+          <button type="button" onclick="if(window.caches){caches.keys().then(function(k){return Promise.all(k.map(function(c){return caches.delete(c);}));});}localStorage.clear();window.location.reload(true);" style="padding: 10px 20px; background: #D97706; color: white; border: none; border-radius: 10px; font-family: 'Cinzel', serif; font-size: 11px; font-weight: bold; letter-spacing: 1px; cursor: pointer;">
+            Vider le cache & Relancer
+          </button>
+        </div>
+      </div>
+      <style>
+        @keyframes eternal-spin {
+          to { transform: rotate(360deg); }
+        }
+      </style>
+      <script>
+        setTimeout(function() {
+          var troubleshooter = document.getElementById('preloader-troubleshoot');
+          if (troubleshooter && !document.getElementById('root').hasAttribute('data-mounted')) {
+            troubleshooter.style.display = 'flex';
+          }
+        }, 6000);
+      </script>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
