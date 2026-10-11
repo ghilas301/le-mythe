@@ -50,15 +50,15 @@ export const CodexSection: React.FC<CodexSectionProps> = ({ lang }) => {
     },
     {
       id: 'watcher',
-      name: isFr ? "Gardiens Silencieux" : "Silent Cliff Watchers",
-      role: isFr ? "Les Ombres Éternelles" : "The Timeless Shadows",
-      altitude: isFr ? "Dès 45 mètres" : "From 45 meters",
+      name: isFr ? "L'Observateur Muet" : "The Silent Watcher",
+      role: isFr ? "La Présence Progressive" : "The Progressive Presence",
+      altitude: isFr ? "0 à 50+ ascensions" : "0 to 50+ runs",
       icon: Eye,
-      color: "text-purple-400",
-      bgBorder: "border-purple-900/30",
+      color: "text-amber-400",
+      bgBorder: "border-amber-900/40",
       desc: isFr
-        ? "Silhouettes encapuchonnées veillant sur les promontoires rocheux. Nul ne sait s'il s'agit d'anciens rois punis ou des gardiens impartiaux du royaume d'Hadès."
-        : "Cloaked spectral sentinels stationed upon isolated rocky promontories. None know if they are former condemned monarchs or impartial guardians of the Underworld."
+        ? "Une figure mystique qui se rapproche au fil de vos tentatives. De 0 à 9 parties, c'est une silhouette lointaine sur la cime. De 10 à 49 parties, il descend à mi-pente avec sa lanterne. À 50+ parties, il s'assied au bord du chemin et murmure de profondes citations philosophiques (Camus, Nietzsche, Cioran, Sénèque)."
+        : "A mysterious figure that draws nearer with each attempt. From 0-9 runs, he is a distant silhouette on the peaks. From 10-49 runs, he descends to mid-slope with lantern and staff. At 50+ runs, he sits by the trailside and speaks profound philosophical quotes (Camus, Nietzsche, Cioran, Seneca)."
     },
     {
       id: 'wisp',

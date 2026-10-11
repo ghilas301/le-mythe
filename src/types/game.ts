@@ -2,6 +2,22 @@ export type Language = 'en' | 'fr';
 
 export type GameMode = 'ABSURD' | 'ZEN';
 
+export type TimedEvent = 'NONE' | 'AVALANCHE' | 'MIRAGE' | 'EQUINOX';
+
+export type WatcherTier = 'DISTANT_SHADOW' | 'APPROACHING_PILGRIM' | 'SEATED_SAGE';
+
+export interface EventBadge {
+  id: string;
+  event: TimedEvent;
+  nameFr: string;
+  nameEn: string;
+  icon: string;
+  descriptionFr: string;
+  descriptionEn: string;
+  unlocked: boolean;
+  unlockedAt?: number;
+}
+
 export type GameStatus = 'IDLE' | 'PUSHING' | 'SLIPPING' | 'CRASHING' | 'DESCENDING' | 'GAME_OVER';
 
 export type Season = 'SPRING' | 'SUMMER' | 'AUTUMN' | 'WINTER';
@@ -67,6 +83,7 @@ export interface RunSummary {
   absurdRemark: string;
   timestamp: number;
   biomeReached?: string;
+  event?: TimedEvent;
 }
 
 export interface AdSimulationConfig {

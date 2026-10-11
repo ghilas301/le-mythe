@@ -1,27 +1,34 @@
 import React, { useState } from 'react';
-import { RunSummary, AdSimulationConfig } from '../types/game';
+import { RunSummary, AdSimulationConfig, EventBadge } from '../types/game';
 import { Translations } from '../services/i18n';
-import { RotateCcw, Share2, Award, Check, ExternalLink } from 'lucide-react';
+import { RotateCcw, Share2, Award, Check, ExternalLink, Trophy, ShieldCheck } from 'lucide-react';
+import { TIMED_EVENTS } from '../services/events';
 
 interface GameOverModalProps {
   summary: RunSummary;
   t: Translations;
   adConfig: AdSimulationConfig;
+  unlockedBadge?: EventBadge | null;
   onRestart: () => void;
   onOpenCertificate: () => void;
+  onOpenEventLeaderboard?: () => void;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
   summary,
   t,
   adConfig,
+  unlockedBadge,
   onRestart,
-  onOpenCertificate
+  onOpenCertificate,
+  onOpenEventLeaderboard
 }) => {
   const [copied, setCopied] = useState(false);
+  const eventConfig = summary.event ? TIMED_EVENTS[summary.event] : null;
 
   const handleShareText = async () => {
-    const textToShare = `🏛️ The Eternal Push (Sisyphus Game)\n` +
+    const eventText = eventConfig ? ` [Défi: ${eventConfig.titleFr}]` : '';
+    const textToShare = `🏛️ The Eternal Push (Sisyphus Game)${eventText}\n` +
       `I pushed the boulder for ${summary.distance.toFixed(1)}m uphill (${summary.time.toFixed(1)}s, ${summary.pushes} pushes).\n` +
       `Result: 0 meters. Pure absurdity.\n` +
       `"${summary.absurdRemark}"\n` +
@@ -51,7 +58,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-lg rounded-2xl bg-[#171513] border border-[#3E362C] p-6 shadow-2xl text-[#E8E2D8] flex flex-col gap-5 max-h-[92vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg rounded-2xl bg-[#171513] border border-[#3E362C] p-6 shadow-2xl text-[#E8E2D8] flex flex-col gap-4 max-h-[92vh] overflow-y-auto">
         
         {/* Record Alert if achieved */}
         {summary.isNewRecord && (
@@ -60,8 +67,29 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </div>
         )}
 
+        {/* Newly Unlocked Badge Banner */}
+        {unlockedBadge && (
+          <div className="p-3 rounded-xl bg-amber-950/60 border border-amber-500/70 flex items-center gap-3 animate-bounce">
+            <span className="text-3xl">{unlockedBadge.icon}</span>
+            <div className="flex flex-col">
+              <span className="text-xs font-cinzel font-bold text-amber-300 flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5" /> NOUVEAU BADGE DÉBLOQUÉ !
+              </span>
+              <span className="text-sm font-cinzel font-bold text-white">{unlockedBadge.nameFr}</span>
+              <span className="text-[10px] text-[#D8CEBF]">{unlockedBadge.descriptionFr}</span>
+            </div>
+          </div>
+        )}
+
         {/* Title & Philosophical Header */}
         <div className="text-center">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            {eventConfig && (
+              <span className="text-[10px] px-2 py-0.5 rounded bg-blue-950/60 text-blue-300 border border-blue-700/50 font-cinzel uppercase font-bold">
+                {eventConfig.badgeIcon} {eventConfig.titleFr}
+              </span>
+            )}
+          </div>
           <h2 className="text-2xl font-bold font-cinzel text-[#F7F3EB] tracking-wide">
             {t.gameOverTitle}
           </h2>
@@ -100,22 +128,21 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         </div>
 
         {/* Dedicated, Strictly Dimensioned Adsterra / Sponsored Slot (CLS <= 0.1) */}
-        <div className="flex flex-col gap-1.5 w-full">
+        <div className="flex flex-col gap-1 w-full">
           <div className="flex items-center justify-between text-[10px] text-[#786E60] uppercase tracking-wider font-mono px-1">
             <span>{t.adNotice}</span>
             <span className="text-[9px]">300×250 Banner Slot</span>
           </div>
 
-          {/* Reserved Layout Box to guarantee Zero CLS */}
-          <div className="w-full h-[160px] sm:h-[180px] rounded-lg bg-[#0F0E0C] border border-dashed border-[#3D352A] flex flex-col items-center justify-center p-4 text-center relative overflow-hidden group">
-            <div className="flex flex-col items-center gap-2 z-10 max-w-xs">
+          <div className="w-full h-[140px] rounded-lg bg-[#0F0E0C] border border-dashed border-[#3D352A] flex flex-col items-center justify-center p-3 text-center relative overflow-hidden group">
+            <div className="flex flex-col items-center gap-1.5 z-10 max-w-xs">
               <span className="text-xs font-cinzel tracking-widest text-[#B5A997] font-semibold">
                 HERACLES COURIER · ATHENS
               </span>
               <p className="text-[11px] text-[#857B6D] leading-snug">
                 “Heavy load transport since 450 BCE. We do not drop your cargo. Ever.”
               </p>
-              <span className="inline-flex items-center gap-1 text-[10px] text-amber-500/90 font-mono mt-1 underline">
+              <span className="inline-flex items-center gap-1 text-[10px] text-amber-500/90 font-mono underline">
                 Simulated Partner Network <ExternalLink className="w-3 h-3" />
               </span>
             </div>
@@ -129,7 +156,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
         </div>
 
         {/* Buttons Row */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 mt-1">
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 mt-1">
           {/* Main Restart Button (Prominent, unhindered) */}
           <button
             type="button"
@@ -139,6 +166,19 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             <RotateCcw className="w-4 h-4" />
             <span>{t.tryAgainBtn}</span>
           </button>
+
+          {/* Leaderboard button */}
+          {onOpenEventLeaderboard && (
+            <button
+              type="button"
+              onClick={onOpenEventLeaderboard}
+              className="w-full sm:w-auto py-3 px-3.5 rounded-xl font-sans font-medium text-xs text-[#D8CEBF] bg-[#24201A] hover:bg-[#312B24] border border-[#453D32] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              title="Classements et Badges"
+            >
+              <Trophy className="w-4 h-4 text-amber-400" />
+              <span>Panthéon</span>
+            </button>
+          )}
 
           {/* Share score */}
           <button
@@ -154,11 +194,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           <button
             type="button"
             onClick={onOpenCertificate}
-            className="w-full sm:w-auto py-3 px-4 rounded-xl font-sans font-medium text-xs text-[#D8CEBF] bg-[#24201A] hover:bg-[#312B24] border border-[#453D32] transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full sm:w-auto py-3 px-3.5 rounded-xl font-sans font-medium text-xs text-[#D8CEBF] bg-[#24201A] hover:bg-[#312B24] border border-[#453D32] transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             title={t.shareCardBtn}
           >
             <Award className="w-4 h-4 text-amber-400" />
-            <span className="sm:hidden">{t.shareCardBtn}</span>
           </button>
         </div>
 

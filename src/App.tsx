@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { GameStatus, GameStats, RunSummary, Language, GameMode, AdSimulationConfig } from './types/game';
+import { GameStatus, GameStats, RunSummary, Language, GameMode, AdSimulationConfig, TimedEvent, EventBadge } from './types/game';
 import { getSeasonForAttempt } from './services/seasons';
 import { translations, getAbsurdRemark } from './services/i18n';
 import { soundEngine } from './services/audio';
@@ -15,7 +15,12 @@ import { ShareCardModal } from './components/ShareCardModal';
 import { EditorialSections } from './components/EditorialSections';
 import { CodexSection } from './components/CodexSection';
 import { DownloadModal } from './components/DownloadModal';
-import { Volume2, VolumeX, Globe, Shield, Sparkles, Download, Music, Footprints } from 'lucide-react';
+import { EventLeaderboardModal } from './components/EventLeaderboardModal';
+import { checkAndUnlockBadge, getAvalancheHazard } from './services/events';
+import { silentWatcherEngine } from './services/watcher';
+import { saveLocalRun } from './services/indexedDb';
+import { submitRunToCloud, getOrCreateDeviceId } from './services/firebase';
+import { Volume2, VolumeX, Globe, Shield, Sparkles, Download, Music, Footprints, Trophy } from 'lucide-react';
 
 const TOLERANCE_WINDOW_MS = 950; // ~0.95 seconds grace before gravity reclaims boulder
 
@@ -38,6 +43,9 @@ export default function App() {
   const [showDownloadModal, setShowDownloadModal] = useState<boolean>(false);
   const [activeCertificate, setActiveCertificate] = useState<RunSummary | null>(null);
   const [gameMode, setGameMode] = useState<GameMode>('ABSURD');
+  const [currentEvent, setCurrentEvent] = useState<TimedEvent>('NONE');
+  const [newlyUnlockedBadge, setNewlyUnlockedBadge] = useState<EventBadge | null>(null);
+  const [showEventLeaderboard, setShowEventLeaderboard] = useState<boolean>(false);
 
   // Core Game State
   const [status, setStatus] = useState<GameStatus>('IDLE');
@@ -155,6 +163,7 @@ export default function App() {
   const lastTickRef = useRef<number>(performance.now());
   const maxDistanceRef = useRef<number>(stats.maxDistance);
   const gameModeRef = useRef<GameMode>('ABSURD');
+  const eventRef = useRef<TimedEvent>('NONE');
   const pushPulseUntilRef = useRef<number>(0);
 
   // Sync refs with state
@@ -166,7 +175,8 @@ export default function App() {
     pushCountRef.current = pushCount;
     maxDistanceRef.current = stats.maxDistance;
     gameModeRef.current = gameMode;
-  }, [isPushing, status, currentDistance, elapsedTime, pushCount, stats.maxDistance, gameMode]);
+    eventRef.current = currentEvent;
+  }, [isPushing, status, currentDistance, elapsedTime, pushCount, stats.maxDistance, gameMode, currentEvent]);
 
   // Restart Handler
   const handleRestart = useCallback(() => {
@@ -211,8 +221,44 @@ export default function App() {
       pushes: finalPushes,
       isNewRecord: isRecord,
       absurdRemark: getAbsurdRemark(finalDistance, finalTime, lang),
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      event: eventRef.current
     };
+
+    // Check and unlock timed event badges
+    const badgeUnlock = checkAndUnlockBadge(eventRef.current, finalDistance, finalTime);
+    if (badgeUnlock && badgeUnlock.wasNewlyUnlocked) {
+      setNewlyUnlockedBadge(badgeUnlock.badge);
+    } else {
+      setNewlyUnlockedBadge(null);
+    }
+
+    // Save run in local IndexedDB
+    saveLocalRun({
+      distance: finalDistance,
+      altitude: finalDistance * Math.sin(0.44),
+      time: finalTime,
+      pushes: finalPushes,
+      season: seasonConfig.season,
+      gameMode: gameModeRef.current,
+      event: eventRef.current,
+      isNewRecord: isRecord,
+      timestamp: Date.now()
+    }).catch(() => {});
+
+    // Sync run to Cloud Firebase Leaderboard
+    submitRunToCloud({
+      deviceId: getOrCreateDeviceId(),
+      playerName: 'Sisyphe',
+      distance: finalDistance,
+      altitude: finalDistance * Math.sin(0.44),
+      time: finalTime,
+      pushes: finalPushes,
+      season: seasonConfig.season,
+      gameMode: gameModeRef.current,
+      event: eventRef.current,
+      timestamp: Date.now()
+    }).catch(() => {});
 
     // Update memorial cairns on the mountain
     const updatedCairns = stats.cairns ? [...stats.cairns] : [];
@@ -368,6 +414,12 @@ export default function App() {
         timeRef.current += dt;
         setElapsedTime(timeRef.current);
 
+        // Equinox Challenge: strict 5 minutes (300 seconds) cosmic session limit!
+        if (eventRef.current === 'EQUINOX' && timeRef.current >= 300) {
+          triggerCrash();
+          return;
+        }
+
         const isActivelyPushing = isPushingRef.current || performance.now() < pushPulseUntilRef.current;
 
         if (isActivelyPushing) {
@@ -402,7 +454,11 @@ export default function App() {
                 soundEngine.playSlipWarning();
               }
 
-              const gravitySpeed = 6.5 * seasonConfig.slipGravityMod;
+              // Avalanche hazard escalates slip gravity every 20m!
+              const avalancheHazard = eventRef.current === 'AVALANCHE' ? getAvalancheHazard(distanceRef.current) : null;
+              const avalancheGravityMult = avalancheHazard ? avalancheHazard.slipGravityMultiplier : 1.0;
+
+              const gravitySpeed = 6.5 * seasonConfig.slipGravityMod * avalancheGravityMult;
               distanceRef.current -= gravitySpeed * dt;
               setCurrentDistance(Math.max(0, distanceRef.current));
 
@@ -460,6 +516,17 @@ export default function App() {
 
         {/* Global Controls: Audio & Language */}
         <div className="flex items-center gap-2">
+          {/* Panthéon / Event Leaderboards Button */}
+          <button
+            type="button"
+            onClick={() => setShowEventLeaderboard(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1F1B16] hover:bg-[#2A241E] border border-amber-600/50 text-xs font-cinzel font-semibold text-amber-300 shadow-sm transition-all cursor-pointer"
+            title={lang === 'fr' ? 'Classements et Badges des Événements' : 'Event Leaderboards & Badges'}
+          >
+            <Trophy className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">{lang === 'fr' ? 'Panthéon' : 'Leaderboard'}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowDownloadModal(true)}
@@ -542,6 +609,7 @@ export default function App() {
           maxDistance={stats.maxDistance}
           cairns={stats.cairns}
           descendDistance={descendDistance}
+          event={currentEvent}
           onPushStart={handlePushStart}
           onPushEnd={handlePushEnd}
         />
@@ -564,6 +632,14 @@ export default function App() {
           isPushing={isPushing}
           gameMode={gameMode}
           onSelectMode={(m) => setGameMode(m)}
+          event={currentEvent}
+          onSelectEvent={(evt) => {
+            setCurrentEvent(evt);
+            handleRestart();
+          }}
+          onTriggerWatcher={() => {
+            silentWatcherEngine.triggerQuote('CONTEMPLATION');
+          }}
           t={t}
           lang={lang}
           isMusicOn={isMusicOn}
@@ -623,8 +699,19 @@ export default function App() {
           summary={lastSummary}
           t={t}
           adConfig={adConfig}
+          unlockedBadge={newlyUnlockedBadge}
           onRestart={handleRestart}
           onOpenCertificate={() => setActiveCertificate(lastSummary)}
+          onOpenEventLeaderboard={() => setShowEventLeaderboard(true)}
+        />
+      )}
+
+      {/* Event Leaderboards & Badges Modal */}
+      {showEventLeaderboard && (
+        <EventLeaderboardModal
+          initialEvent={currentEvent}
+          lang={lang}
+          onClose={() => setShowEventLeaderboard(false)}
         />
       )}
 

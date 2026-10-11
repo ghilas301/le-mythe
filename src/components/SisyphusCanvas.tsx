@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useCallback } from 'react';
-import { GameStatus, Language, Season, SeasonConfig, CairnMarker } from '../types/game';
+import { GameStatus, Language, Season, SeasonConfig, CairnMarker, TimedEvent } from '../types/game';
 import { soundEngine } from '../services/audio';
 import { BirdSystem, ForegroundFoliage, getAtmosphereForCycle } from '../services/atmosphere';
 import { monologueEngine } from '../services/monologue';
@@ -8,6 +8,8 @@ import { MountainTerrain } from '../services/terrain';
 import { LivingWorldSystem } from '../services/livingWorld';
 import { StickmanRenderer } from '../services/stickmanRenderer';
 import { SkyWhaleSystem } from '../services/skyWhale';
+import { silentWatcherEngine } from '../services/watcher';
+import { getAvalancheHazard } from '../services/events';
 
 interface SisyphusCanvasProps {
   status: GameStatus;
@@ -22,6 +24,7 @@ interface SisyphusCanvasProps {
   maxDistance?: number;
   cairns?: CairnMarker[];
   descendDistance?: number;
+  event?: TimedEvent;
   onPushStart: () => void;
   onPushEnd: () => void;
 }
@@ -59,6 +62,7 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
   maxDistance = 0,
   cairns = [],
   descendDistance = 0,
+  event = 'NONE',
   onPushStart,
   onPushEnd
 }) => {
@@ -191,6 +195,9 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
 
       // Update living encounters (ravens, wanderers, ibex, watchers, wisps)
       livingWorldRef.current.update(activeDist, dt, now);
+
+      // Update Silent Watcher narrative presence
+      silentWatcherEngine.update(totalAttempts, activeDist, status, isPushing, dt);
 
       // Update boulder rotation & crash tumbling
       if (status === 'PUSHING') {
@@ -449,6 +456,35 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       // 4c. Living Mountain Encounters (Ravens, descending pilgrims, ibex on crags, watchers, wisps)
       livingWorldRef.current.render(ctx, width, height, activeDist, getTerrainY, now, lang);
 
+      // 4d. The Silent Watcher (Progressive presence from distant shadow to wayside philosophical sage)
+      silentWatcherEngine.render(ctx, width, height, activeDist, getTerrainY, now, lang);
+
+      // 4e. Timed Events Visual FX (Mirage heat waves, Avalanche blizzard surges)
+      if (event === 'MIRAGE' && activeDist > 2) {
+        ctx.save();
+        const mirageWave = Math.sin(now * 0.003) * 0.5 + 0.5;
+        const mirageGrad = ctx.createLinearGradient(0, height * 0.38, 0, height);
+        mirageGrad.addColorStop(0, 'rgba(251, 191, 36, 0)');
+        mirageGrad.addColorStop(0.4, `rgba(245, 158, 11, ${0.07 + mirageWave * 0.05})`);
+        mirageGrad.addColorStop(1, 'rgba(217, 119, 6, 0.02)');
+        ctx.fillStyle = mirageGrad;
+        ctx.fillRect(0, height * 0.38, width, height * 0.62);
+        ctx.restore();
+      }
+
+      const avalancheHazard = event === 'AVALANCHE' ? getAvalancheHazard(activeDist) : null;
+      if (avalancheHazard && avalancheHazard.stage > 0) {
+        ctx.save();
+        ctx.fillStyle = avalancheHazard.isJustTriggered20m ? 'rgba(239, 68, 68, 0.92)' : 'rgba(147, 197, 253, 0.82)';
+        ctx.font = '700 11px Cinzel, serif';
+        ctx.textAlign = 'center';
+        const txt = lang === 'fr'
+          ? `❄️ PÉRIL D'AVALANCHE : PALIER ${avalancheHazard.stage} (${avalancheHazard.stage * 20}M franchis)`
+          : `❄️ AVALANCHE PERIL: TIER ${avalancheHazard.stage} (${avalancheHazard.stage * 20}M reached)`;
+        ctx.fillText(txt, width / 2, 28);
+        ctx.restore();
+      }
+
       // 5. Sisyphus and Boulder coordinates on organic terrain
       const playerX = width * 0.42;
       const playerY = getTerrainY(playerX);
@@ -669,7 +705,7 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
         cancelAnimationFrame(animFrameRef.current);
       }
     };
-  }, [status, isPushing, distance, runTime, totalAttempts, lang, season, seasonConfig, maxDistance, cairns, descendDistance, SLOPE_ANGLE, spawnDust]);
+  }, [status, isPushing, distance, runTime, totalAttempts, lang, season, seasonConfig, maxDistance, cairns, descendDistance, event, SLOPE_ANGLE, spawnDust]);
 
   // Adjust canvas size to match container with crisp Hi-DPI
   useEffect(() => {

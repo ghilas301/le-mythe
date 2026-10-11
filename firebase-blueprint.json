@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Global anonymous leaderboard record for The Eternal Push",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique run ID" },
+        "deviceId": { "type": "string", "description": "Anonymous unique device hash" },
+        "playerName": { "type": "string", "description": "Player moniker or alias" },
+        "distance": { "type": "number", "description": "Distance ascended in meters" },
+        "altitude": { "type": "number", "description": "Altitude gained in meters" },
+        "time": { "type": "number", "description": "Endurance time in seconds" },
+        "pushes": { "type": "number", "description": "Number of exertion pushes" },
+        "season": { "type": "string", "description": "Season during which the ascent occurred" },
+        "gameMode": { "type": "string", "description": "Game mode: ABSURD or ZEN" },
+        "event": { "type": "string", "description": "Optional timed event tag: AVALANCHE, MIRAGE, EQUINOX, or NONE" },
+        "timestamp": { "type": "number", "description": "Unix timestamp in ms" }
+      },
+      "required": ["id", "deviceId", "distance", "time", "pushes", "timestamp"]
+    },
+    "GhostReplay": {
+      "title": "GhostReplay",
+      "description": "Ghost replay trail for community challenge racing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ghost run ID" },
+        "playerName": { "type": "string", "description": "Player moniker" },
+        "distance": { "type": "number", "description": "Final distance" },
+        "time": { "type": "number", "description": "Total duration" },
+        "season": { "type": "string", "description": "Season tag" },
+        "timestamp": { "type": "number", "description": "Creation timestamp" }
+      },
+      "required": ["id", "playerName", "distance", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/leaderboard/{runId}": {
+      "schema": "LeaderboardEntry",
+      "description": "Global leaderboard collection ordered by distance ascended"
+    },
+    "/ghosts/{ghostId}": {
+      "schema": "GhostReplay",
+      "description": "Curated community and player ghost runs for background ghost racing"
+    }
+  }
+}
