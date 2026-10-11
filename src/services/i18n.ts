@@ -350,39 +350,111 @@ export const translations: Record<Language, Translations> = {
 
 /**
  * Returns dynamic absurdist philosophical reflections tailored to the player's final performance
+ * Drawn from public domain stoic and existential wisdom
  */
 export function getAbsurdRemark(distance: number, time: number, lang: Language): string {
+  const d = Math.round(distance);
+  const t = Math.round(time);
+
   if (lang === 'fr') {
     if (distance < 15) {
-      return "Une tentative brève. Le rocher a peine senti tes mains, mais le néant est déjà satisfait.";
+      const pool = [
+        "« Ce n’est pas parce que les choses sont difficiles que nous n’osons pas... » — Une tentative brève, le roc a peine frémi.",
+        "Une brève échauffourée contre la pesanteur. Le rocher a peine senti tes mains, mais le néant est déjà satisfait.",
+        "Le premier pas est souvent le plus abrupt. « La difficulté montre les hommes. » — Épictète",
+        "Le rocher a roulé avant même d'avoir quitté l'herbe basse. Recommencer est ton seul privilège."
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
     } else if (distance < 45) {
-      return "Une modeste illusion d'élan vers l'avant. La montagne n'a même pas frémi.";
+      const pool = [
+        "Une modeste illusion d'élan vers l'avant. La montagne n'a même pas frémi, mais ton geste existe.",
+        "« L’obstacle qui barre la route devient le chemin. » — Marc Aurèle. Le chemin t'attend à nouveau.",
+        "« Ce qui ne me tue pas me rend plus fort. » — Nietzsche. Tes paumes se souviennent de la pierre.",
+        "Trente mètres d'orgueil humain face à une masse géologique de calcaire. Match nul, avantage gravité."
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
     } else if (distance < 100) {
-      return "Tes jointures ont saigné pour une pure abstraction numérique. Bravo.";
-    } else if (distance < 200) {
-      return "Zeus regarde depuis l'Olympe en bâillant avec distinction. Le rocher est de retour au bas de la pente.";
-    } else if (distance < 350) {
-      return "La pente se raidissait, l'absurde mûrissait. Tu as presque cru à une fin.";
-    } else if (distance < 550) {
-      return "Albert Camus esquisse un sourire discret dans la brume. Il faut t'imaginer heureux.";
+      const pool = [
+        "Tes jointures ont saigné pour une pure abstraction métrique. « Mon métier et mon art, c’est vivre. » — Montaigne.",
+        "« Pour soulever un poids si lourd, Sisyphe, il faudrait ton courage ! » — Baudelaire.",
+        "La pente se cabrait, tes cuisses brûlaient. Tu as arraché de la dignité au vide sidéral.",
+        "« L’homme n’est qu’un roseau pensant face à la colline brute. » — Pascal."
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
+    } else if (distance < 250) {
+      const pool = [
+        `Zeus regarde depuis l'Olympe en bâillant avec distinction (${d} m). Le rocher est de retour au bas de la pente.`,
+        "« Il n’est pas de destin qui ne se surmonte par le mépris. » — Albert Camus. Regarde le rocher avec un sourire.",
+        "« Celui qui a un pourquoi qui lui tient lieu de but peut supporter n’importe quel rocher. » — Nietzsche.",
+        "Cent cinquante mètres d'ascension héroïque réduits à zéro en deux secondes. Pure perfection tragique."
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
+    } else if (distance < 500) {
+      const pool = [
+        `La pente se raidissait, l'absurde mûrissait (${d} m en ${t} s). Tu as presque cru toucher le ciel.`,
+        "« L'homme libre ne pense à rien moins qu'à la défaite, et sa grandeur est de recommencer. » — Spinoza.",
+        "« La lutte elle-même vers les sommets suffit à remplir un cœur d’homme. » — Albert Camus.",
+        "Les dieux ont retenu leur souffle pendant quelques mètres. Puis la physique a repris ses droits."
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
     } else {
-      return `Un monument d'obstination (${Math.round(distance)} m en ${Math.round(time)} s). Le sommet était un mirage, mais ton geste était magnifique.`;
+      const pool = [
+        `Un monument d'obstination souveraine (${d} m en ${t} s). Le sommet était un mirage, mais ton geste était sublime.`,
+        `« Il faut imaginer Sisyphe heureux. » — Albert Camus. Tu as défié la montagne sur ${d} mètres de roche nue.`,
+        `« Amor Fati : aimer son fardeau jusqu'au dernier grain de poussière. » — Nietzsche. ${d} mètres de gloire pure.`,
+        `Une ascension titanesque (${d} m). Si les cimes n'ont pas de fin, ton refus de céder est désormais légendaire.`
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
     }
   } else {
     if (distance < 15) {
-      return "A fleeting skirmish. The boulder barely registered your palms, yet nothingness is appeased.";
+      const pool = [
+        "A fleeting skirmish. The boulder barely registered your palms, yet nothingness is appeased.",
+        "“It is not because things are difficult that we do not dare...” — Seneca. The rock barely quivered.",
+        "“Difficulties are things that show what men are.” — Epictetus. Your hands are ready to try again.",
+        "A momentary duel with gravity. The stone returns to the grass; starting anew is your sovereign right."
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
     } else if (distance < 45) {
-      return "A modest illusion of forward momentum. The mountain did not even flinch.";
+      const pool = [
+        "A modest illusion of forward momentum. The mountain did not even flinch, yet your effort stands.",
+        "“The impediment to action advances action. What stands in the way becomes the way.” — Marcus Aurelius.",
+        "“What does not kill me makes me stronger.” — Nietzsche. Your knuckles remember the granite.",
+        "A handful of meters of human pride against centuries of limestone. Advantage gravity, for now."
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
     } else if (distance < 100) {
-      return "Your knuckles bled for a fleeting mathematical abstraction. Well pushed.";
-    } else if (distance < 200) {
-      return "Zeus observes from Mount Olympus, yawning with aristocratic detachment.";
-    } else if (distance < 350) {
-      return "The slope steepened, absurdity ripened. For a second, you almost believed in a summit.";
-    } else if (distance < 550) {
-      return "Albert Camus nods softly in the misty distance. One must imagine you joyful.";
+      const pool = [
+        "Your knuckles bled for a fleeting mathematical abstraction. Well pushed.",
+        "“To lift a weight so heavy, Sisyphus, one would need all your courage!” — Charles Baudelaire.",
+        "The slope steepened, calves burned. You carved out dignity from sheer geological indifference.",
+        "“Man is only a reed, but a thinking reed confronting the mountain.” — Blaise Pascal."
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
+    } else if (distance < 250) {
+      const pool = [
+        `Zeus observes from Mount Olympus, yawning with aristocratic detachment (${d} m). Back to the bottom.`,
+        "“There is no fate that cannot be surmounted by scorn.” — Albert Camus. Gaze back at the fallen stone.",
+        "“He who has a why to live can bear almost any boulder.” — Friedrich Nietzsche.",
+        "An ascent of defiant grace erased in three seconds of tumbling granite. Classical perfection."
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
+    } else if (distance < 500) {
+      const pool = [
+        `The slope steepened, absurdity ripened (${d} m in ${t} s). For a moment, you touched the clouds.`,
+        "“The struggle itself toward the heights is enough to fill a man’s heart.” — Albert Camus.",
+        "“A free man thinks of nothing less than defeat, his wisdom is the act of resumption.” — Spinoza.",
+        "The gods held their breath for a fleeting heartbeat. Then classical mechanics reclaimed its throne."
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
     } else {
-      return `A colossal monument to sheer stubbornness (${Math.round(distance)} m in ${Math.round(time)} s). The peak was an illusion, but your effort was sublime.`;
+      const pool = [
+        `A colossal monument to sheer stubbornness (${d} m in ${t} s). The peak was an illusion, but your effort was sublime.`,
+        `“One must imagine Sisyphus happy.” — Albert Camus. You defied the mountain across ${d} meters of raw stone.`,
+        `“Amor Fati: to embrace one's burden with joy.” — Nietzsche. ${d} meters of pure existential triumph.`,
+        `A titanic ascent (${d} m). The heights may be endless, but your defiance is now carved in stone.`
+      ];
+      return pool[Math.floor(Math.random() * pool.length)];
     }
   }
 }

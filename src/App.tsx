@@ -240,27 +240,14 @@ export default function App() {
     };
     persistStats(updatedStats);
 
-    // If significant distance was achieved, experience the Camusian Descent!
-    if (finalDistance >= 6) {
-      setTimeout(() => {
-        setStatus('DESCENDING');
-        statusRef.current = 'DESCENDING';
-        setDescendDistance(finalDistance);
-        descendDistanceRef.current = finalDistance;
-        setLastSummary(summary);
-        setCurrentDistance(0);
-        distanceRef.current = 0;
-        soundEngine.startAmbientMusic(true);
-      }, 950);
-    } else {
-      setTimeout(() => {
-        setStatus('GAME_OVER');
-        statusRef.current = 'GAME_OVER';
-        setLastSummary(summary);
-        setCurrentDistance(0);
-        distanceRef.current = 0;
-      }, 750);
-    }
+    // Immediate graceful transition to Game Over after boulder tumble
+    setTimeout(() => {
+      setStatus('GAME_OVER');
+      statusRef.current = 'GAME_OVER';
+      setLastSummary(summary);
+      setCurrentDistance(0);
+      distanceRef.current = 0;
+    }, 850);
   }, [lang, stats, persistStats]);
 
   // Push Start & End Callbacks (Unified for Mouse, Pointer, Touch, and Taps)

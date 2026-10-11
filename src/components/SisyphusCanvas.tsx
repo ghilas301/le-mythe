@@ -7,6 +7,7 @@ import { getBiomeForDistance } from '../services/biomes';
 import { MountainTerrain } from '../services/terrain';
 import { LivingWorldSystem } from '../services/livingWorld';
 import { StickmanRenderer } from '../services/stickmanRenderer';
+import { SkyWhaleSystem } from '../services/skyWhale';
 
 interface SisyphusCanvasProps {
   status: GameStatus;
@@ -73,6 +74,7 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
 
   // Atmospheric & Living Systems
   const birdSystemRef = useRef<BirdSystem>(new BirdSystem());
+  const skyWhaleRef = useRef<SkyWhaleSystem>(new SkyWhaleSystem());
   const foregroundFoliageRef = useRef<ForegroundFoliage>(new ForegroundFoliage());
   const livingWorldRef = useRef<LivingWorldSystem>(new LivingWorldSystem());
   const starsRef = useRef<Star[]>([]);
@@ -266,6 +268,10 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
 
       // 2. Solitary Passing Birds
       birdSystemRef.current.render(ctx);
+
+      // 2b. Majestic Celestial Sky Whale gliding peacefully across the upper clouds
+      skyWhaleRef.current.update(dt, width, height);
+      skyWhaleRef.current.render(ctx, atmosphere.isNight);
 
       // 3. Distant mountain peaks (woodcut silhouette parallax)
       const distLight = Math.round(24 * atmosphere.ambientLight * biome.lightFactor);
@@ -590,26 +596,51 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
       // 9. Foreground Foliage Layer (Twisted Pines, Thorn Bushes, Wild Grass with Deep Parallax)
       foregroundFoliageRef.current.render(ctx, width, height, activeDist, now, season);
 
-      // 10. Floating Camusian Monologue Banner
+      // 10. Floating Philosophical Monologue Banner
       const thought = monologueEngine.getActiveThought();
       if (thought) {
         ctx.save();
-        ctx.font = 'italic 15px Newsreader, Georgia, serif';
+        const maxTextWidth = Math.max(240, width - 80);
+        const fontSize = width < 500 ? 12 : 14;
+        ctx.font = `italic ${fontSize}px Newsreader, Georgia, serif`;
         ctx.textAlign = 'center';
 
-        const textMetrics = ctx.measureText(thought.text);
-        const boxWidth = Math.min(width - 40, textMetrics.width + 42);
-        const boxY = height * 0.18;
+        // Word wrap to support multi-line philosophical citations cleanly
+        const words = thought.text.split(' ');
+        const lines: string[] = [];
+        let currentLine = '';
 
-        ctx.fillStyle = `rgba(10, 9, 8, ${thought.alpha * 0.82})`;
-        ctx.fillRect(width / 2 - boxWidth / 2, boxY - 18, boxWidth, 34);
+        for (let i = 0; i < words.length; i++) {
+          const testLine = currentLine ? `${currentLine} ${words[i]}` : words[i];
+          const testMetrics = ctx.measureText(testLine);
+          if (testMetrics.width > maxTextWidth && currentLine) {
+            lines.push(currentLine);
+            currentLine = words[i];
+          } else {
+            currentLine = testLine;
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+
+        const lineHeight = fontSize * 1.35;
+        const totalTextHeight = lines.length * lineHeight;
+        const maxMeasuredLineWidth = Math.max(...lines.map((l) => ctx.measureText(l).width));
+        const boxWidth = Math.min(width - 24, maxMeasuredLineWidth + 34);
+        const boxHeight = totalTextHeight + 14;
+        const boxY = height * 0.16;
+
+        ctx.fillStyle = `rgba(10, 9, 8, ${thought.alpha * 0.85})`;
+        ctx.fillRect(width / 2 - boxWidth / 2, boxY - boxHeight / 2, boxWidth, boxHeight);
 
         ctx.strokeStyle = `rgba(180, 140, 70, ${thought.alpha * 0.45})`;
         ctx.lineWidth = 1;
-        ctx.strokeRect(width / 2 - boxWidth / 2, boxY - 18, boxWidth, 34);
+        ctx.strokeRect(width / 2 - boxWidth / 2, boxY - boxHeight / 2, boxWidth, boxHeight);
 
         ctx.fillStyle = `rgba(242, 235, 224, ${thought.alpha})`;
-        ctx.fillText(thought.text, width / 2, boxY + 4);
+        const startY = boxY - totalTextHeight / 2 + fontSize * 0.82;
+        for (let i = 0; i < lines.length; i++) {
+          ctx.fillText(lines[i], width / 2, startY + i * lineHeight);
+        }
         ctx.restore();
       }
 

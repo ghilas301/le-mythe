@@ -82,27 +82,8 @@ export class LivingWorldSystem {
       headTilt: 0
     }));
 
-    // 2. Descending wanderers / lost souls (walking slowly downhill)
-    // Distributed along the path so the player encounters several as they climb
-    const wandererQuotes = [
-      { fr: "Courage, ombre... la pente n'a pas de fin.", en: "Courage, shade... the slope has no end." },
-      { fr: "J'ai laissé ma pierre au creux du vallon.", en: "I left my stone in the hollow of the valley." },
-      { fr: "La beauté naît du recommencement.", en: "Beauty is born from beginning anew." },
-      { fr: "Regarde le ciel avant qu'il ne s'échappe.", en: "Look at the sky before it slips away." },
-      { fr: "Tu pousses pour nous tous.", en: "You push for all of us." },
-      { fr: "Chaque pas est déjà une victoire.", en: "Each step is already a victory." }
-    ];
-    const wandererStarts = [24, 58, 92, 138, 185, 240];
-    this.wanderers = wandererStarts.map((startDist, idx) => ({
-      worldDistance: startDist,
-      currentWorldDistance: startDist,
-      speed: 0.75 + (idx % 3) * 0.25, // meters per second downward
-      staffSide: idx % 2 === 0 ? 1 : -1,
-      stridePhase: Math.random() * Math.PI * 2,
-      quoteFr: wandererQuotes[idx % wandererQuotes.length].fr,
-      quoteEn: wandererQuotes[idx % wandererQuotes.length].en,
-      hasSpoken: false
-    }));
+    // 2. Descending wanderers removed per user preference
+    this.wanderers = [];
 
     // 3. Ibex / Wild mountain goats perched on crags
     const ibexDistances = [28, 65, 105, 160, 225];
@@ -229,21 +210,6 @@ export class LivingWorldSystem {
       if (watcherScreenX > -50 && watcherScreenX < width + 50) {
         const watcherY = height * watcher.heightRatio;
         this.renderSilentWatcher(ctx, watcherScreenX, watcherY, watcher.hasStaff, watcher.cloakFlutter);
-      }
-    });
-
-    // -------------------------------------------------------------
-    // B. PATH LAYER: Descending Wanderers walking down the mountain trail
-    // -------------------------------------------------------------
-    this.wanderers.forEach((w) => {
-      const distFromPlayer = w.currentWorldDistance - playerDistance;
-      const wandererScreenX = screenCenterX + distFromPlayer * pixelsPerMeter;
-
-      if (wandererScreenX > -60 && wandererScreenX < width + 60) {
-        const groundY = getTerrainY(wandererScreenX);
-        const isNearPlayer = Math.abs(distFromPlayer) < 3.2;
-        const quoteText = lang === 'fr' ? w.quoteFr : w.quoteEn;
-        this.renderDescendingWanderer(ctx, wandererScreenX, groundY, w.stridePhase, w.staffSide, isNearPlayer, quoteText);
       }
     });
 
