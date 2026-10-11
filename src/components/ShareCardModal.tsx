@@ -67,12 +67,12 @@ export const ShareCardModal: React.FC<ShareCardModalProps> = ({
     // Main Score Display
     ctx.font = '900 68px Cinzel, serif';
     ctx.fillStyle = '#F5ECE1';
-    ctx.fillText(`${summary.distance.toFixed(1)} METERS ASCENDED`, 600, 195);
+    ctx.fillText(`${Number(summary.distance || 0).toFixed(1)} METERS ASCENDED`, 600, 195);
 
     // Sub-metric
     ctx.font = '500 24px monospace';
     ctx.fillStyle = '#8C7E6C';
-    ctx.fillText(`Endurance: ${summary.time.toFixed(1)}s  ·  Exertion Strokes: ${summary.pushes}  ·  Net Summit Gain: 0.0m`, 600, 245);
+    ctx.fillText(`Endurance: ${Number(summary.time || 0).toFixed(1)}s  ·  Exertion Strokes: ${summary.pushes}  ·  Net Summit Gain: 0.0m`, 600, 245);
 
     // Separator line
     ctx.strokeStyle = '#4A3E31';

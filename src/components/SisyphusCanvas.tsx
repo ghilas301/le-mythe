@@ -656,72 +656,34 @@ export const SisyphusCanvas: React.FC<SisyphusCanvasProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const atmosphere = getAtmosphereForCycle(totalAttempts, runTime);
-  const currentBiome = getBiomeForDistance(status === 'DESCENDING' ? descendDistance : distance);
-
   return (
     <div className="relative w-full aspect-[16/9] min-h-[320px] max-h-[540px] rounded-xl overflow-hidden border border-[#3A332A] bg-[#121110] shadow-2xl no-select">
       <canvas
         ref={canvasRef}
-        className="w-full h-full block cursor-pointer touch-none"
-        onMouseDown={onPushStart}
-        onMouseUp={onPushEnd}
-        onMouseLeave={onPushEnd}
-        onTouchStart={(e) => {
-          e.preventDefault();
+        className="w-full h-full block cursor-pointer touch-none select-none"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture?.(e.pointerId);
           onPushStart();
         }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
+        onPointerUp={(e) => {
+          try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch {}
           onPushEnd();
         }}
-        onTouchCancel={onPushEnd}
+        onPointerCancel={(e) => {
+          try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch {}
+          onPushEnd();
+        }}
         aria-label="Sisyphus Mountain Interactive Canvas"
       />
 
-      {/* Atmospheric Header: Season, Time of Day & Biome */}
-      <div className="absolute top-3 left-4 right-4 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-2 bg-black/65 backdrop-blur-md px-3 py-1.5 rounded-lg border border-[#3C342A]">
-          <span className="text-xs">{seasonConfig.icon}</span>
-          <span className="text-[11px] font-cinzel uppercase tracking-widest text-amber-200/90 font-bold">
-            {lang === 'fr' ? seasonConfig.nameFr : seasonConfig.nameEn}
-          </span>
-          <span className="text-[10px] text-[#8C8070] font-mono">·</span>
-          <span className="text-[10px] font-mono text-[#C4B9AA]">
-            {lang === 'fr' ? atmosphere.labelFr : atmosphere.labelEn}
-          </span>
-          <span className="text-[10px] text-[#8C8070] font-mono">·</span>
-          <span className="text-[10px] font-cinzel text-amber-400/90 hidden sm:inline">
-            {lang === 'fr' ? currentBiome.nameFr : currentBiome.nameEn}
+      {/* Descent Mode Indicator */}
+      {status === 'DESCENDING' && (
+        <div className="absolute top-3 left-4 pointer-events-none flex items-center gap-2 bg-amber-950/70 border border-amber-600/60 px-3 py-1 rounded-lg">
+          <span className="text-[10px] font-cinzel uppercase tracking-widest text-amber-200 font-bold">
+            {lang === 'fr' ? 'La Descente Lucide' : 'The Conscious Descent'}
           </span>
         </div>
-        
-        {/* Grip / Inertia Bar */}
-        {status !== 'DESCENDING' && status !== 'GAME_OVER' && (
-          <div className="flex items-center gap-2 bg-black/50 backdrop-blur-sm px-2.5 py-1 rounded-lg border border-[#3A3226]">
-            <span className="text-[10px] text-[#A69B8D] font-mono">
-              {Math.round(toleranceRatio * 100)}%
-            </span>
-            <div className="w-24 sm:w-28 h-1.5 bg-[#25201A] rounded-full overflow-hidden border border-[#453D32]">
-              <div
-                className={`h-full transition-all duration-75 ${
-                  toleranceRatio > 0.45 ? 'bg-amber-400' : 'bg-red-500 animate-pulse'
-                }`}
-                style={{ width: `${Math.max(0, Math.min(100, toleranceRatio * 100))}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Descent Mode Indicator */}
-        {status === 'DESCENDING' && (
-          <div className="flex items-center gap-2 bg-amber-950/70 border border-amber-600/60 px-3 py-1 rounded-lg">
-            <span className="text-[10px] font-cinzel uppercase tracking-widest text-amber-200 font-bold">
-              {lang === 'fr' ? 'La Descente Lucide' : 'The Conscious Descent'}
-            </span>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 };

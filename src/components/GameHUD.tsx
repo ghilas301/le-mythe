@@ -44,7 +44,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </span>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-3xl font-bold font-cinzel text-[#F4EFE6] tracking-tight">
-              {stats.currentDistance.toFixed(1)}
+              {Number(stats.currentDistance || 0).toFixed(1)}
             </span>
             <span className="text-xs font-mono text-[#9E9484]">m</span>
           </div>
@@ -58,7 +58,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </span>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-3xl font-bold font-cinzel text-[#F4EFE6] tracking-tight">
-              {stats.currentAltitude.toFixed(1)}
+              {Number(stats.currentAltitude || 0).toFixed(1)}
             </span>
             <span className="text-xs font-mono text-[#9E9484]">m</span>
           </div>
@@ -72,7 +72,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </span>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-3xl font-bold font-mono text-[#F4EFE6] tracking-tight">
-              {stats.elapsedTime.toFixed(1)}
+              {Number(stats.elapsedTime || 0).toFixed(1)}
             </span>
             <span className="text-xs font-mono text-[#9E9484]">s</span>
           </div>
@@ -86,7 +86,7 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           </span>
           <div className="mt-1 flex items-baseline gap-1">
             <span className="text-3xl font-bold font-cinzel text-amber-300 tracking-tight">
-              {stats.maxDistance.toFixed(1)}
+              {Number(stats.maxDistance || 0).toFixed(1)}
             </span>
             <span className="text-xs font-mono text-[#9E9484]">m</span>
           </div>
@@ -170,17 +170,19 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           <div className="w-full max-w-md flex flex-col sm:flex-row gap-3">
             <button
               type="button"
-              onMouseDown={onPushStart}
-              onMouseUp={onPushEnd}
-              onTouchStart={(e) => {
-                e.preventDefault();
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture?.(e.pointerId);
                 onPushStart();
               }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
+              onPointerUp={(e) => {
+                try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch {}
                 onPushEnd();
               }}
-              className="flex-1 py-4 px-6 rounded-xl font-cinzel font-bold text-base uppercase tracking-wider bg-gradient-to-b from-[#2E2820] to-[#1C1814] text-amber-200 border border-amber-600/50 hover:border-amber-400 hover:text-white transition-all cursor-pointer shadow-lg active:scale-[0.98] flex items-center justify-center gap-2"
+              onPointerCancel={(e) => {
+                try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch {}
+                onPushEnd();
+              }}
+              className="flex-1 py-4 px-6 rounded-xl font-cinzel font-bold text-base uppercase tracking-wider bg-gradient-to-b from-[#2E2820] to-[#1C1814] text-amber-200 border border-amber-600/50 hover:border-amber-400 hover:text-white transition-all cursor-pointer shadow-lg active:scale-[0.98] flex items-center justify-center gap-2 select-none touch-none"
             >
               <Footprints className="w-5 h-5 text-amber-400" />
               <span>{t.descentAction}</span>
@@ -189,9 +191,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
               <button
                 type="button"
                 onClick={onSkipDescent}
-                className="py-4 px-4 rounded-xl font-cinzel text-xs font-semibold uppercase tracking-wider bg-[#171513] text-[#A69B8D] border border-[#332D24] hover:text-[#EDE8E0] hover:border-[#524738] transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="py-4 px-4 rounded-xl font-cinzel text-xs font-semibold uppercase tracking-wider bg-amber-950/70 text-amber-300 border border-amber-600/50 hover:bg-amber-900/80 hover:text-white transition-all cursor-pointer flex items-center justify-center gap-1.5"
               >
-                <span>{t.skipDescentBtn}</span>
+                <span>{lang === 'fr' ? 'Recommencer' : 'Restart'}</span>
                 <SkipForward className="w-4 h-4" />
               </button>
             )}
@@ -200,19 +202,19 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           <button
             type="button"
             disabled={status === 'CRASHING'}
-            onMouseDown={onPushStart}
-            onMouseUp={onPushEnd}
-            onMouseLeave={onPushEnd}
-            onTouchStart={(e) => {
-              e.preventDefault();
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture?.(e.pointerId);
               onPushStart();
             }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
+            onPointerUp={(e) => {
+              try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch {}
               onPushEnd();
             }}
-            onTouchCancel={onPushEnd}
-            className={`group relative w-full max-w-md py-5 px-8 rounded-xl font-cinzel font-bold text-xl uppercase tracking-widest transition-all duration-100 cursor-pointer select-none no-select shadow-xl active:scale-[0.98] ${
+            onPointerCancel={(e) => {
+              try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch {}
+              onPushEnd();
+            }}
+            className={`group relative w-full max-w-md py-5 px-8 rounded-xl font-cinzel font-bold text-xl uppercase tracking-widest transition-all duration-100 cursor-pointer select-none no-select shadow-xl active:scale-[0.98] touch-none ${
               status === 'CRASHING'
                 ? 'bg-[#1C1A18] text-[#736A5E] border border-[#2F2923] cursor-not-allowed'
                 : isPushing

@@ -1,6 +1,6 @@
-const CACHE_NAME = 'eternal-push-v2';
+const CACHE_NAME = 'eternal-push-v3';
 
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
@@ -19,10 +19,28 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Let browser handle non-GET or cross-origin requests directly
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith(self.location.origin)) return;
 
+  // For page navigations (HTML), always network first so users never get stuck on stale bundles
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then((cached) => cached || caches.match('./') || caches.match('/'));
+        })
+    );
+    return;
+  }
+
+  // Assets: try network, fallback to cache
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
@@ -34,10 +52,6 @@ self.addEventListener('fetch', (event) => {
         }
         return networkResponse;
       })
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          return cachedResponse || caches.match('/');
-        });
-      })
+      .catch(() => caches.match(event.request))
   );
 });

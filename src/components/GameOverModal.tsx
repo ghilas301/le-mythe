@@ -80,14 +80,14 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           <div className="flex flex-col">
             <span className="text-[10px] uppercase font-mono text-[#8C8273]">{t.statDistance}</span>
             <span className="text-xl font-bold font-cinzel text-amber-200 mt-0.5">
-              {summary.distance.toFixed(1)} <span className="text-xs font-normal">m</span>
+              {Number(summary.distance || 0).toFixed(1)} <span className="text-xs font-normal">m</span>
             </span>
           </div>
 
           <div className="flex flex-col">
             <span className="text-[10px] uppercase font-mono text-[#8C8273]">{t.statTime}</span>
             <span className="text-xl font-bold font-mono text-[#F0EBE1] mt-0.5">
-              {summary.time.toFixed(1)} <span className="text-xs font-normal">s</span>
+              {Number(summary.time || 0).toFixed(1)} <span className="text-xs font-normal">s</span>
             </span>
           </div>
 

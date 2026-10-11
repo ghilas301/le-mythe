@@ -32,7 +32,12 @@ export const ChecklistSection: React.FC<ChecklistSectionProps> = ({ t, lang }) =
   const [checklist, setChecklist] = useState<ChecklistState>(() => {
     try {
       const saved = localStorage.getItem('sisyphus_checklist_state');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return { ...DEFAULT_CHECKLIST, ...parsed };
+        }
+      }
     } catch {
       // fallback
     }

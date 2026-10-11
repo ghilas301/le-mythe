@@ -49,11 +49,27 @@ export default function App() {
   const [toleranceRemainingMs, setToleranceRemainingMs] = useState<number>(TOLERANCE_WINDOW_MS);
   const [lastSummary, setLastSummary] = useState<RunSummary | null>(null);
 
-  // Persistent Stats from localStorage
+  // Persistent Stats from localStorage with bulletproof parsing
   const [stats, setStats] = useState<GameStats>(() => {
     try {
       const saved = localStorage.getItem('eternal_push_stats');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            currentDistance: Number(parsed.currentDistance) || 0,
+            currentAltitude: Number(parsed.currentAltitude) || 0,
+            elapsedTime: Number(parsed.elapsedTime) || 0,
+            pushCount: Number(parsed.pushCount) || 0,
+            maxDistance: Number(parsed.maxDistance) || 0,
+            totalDistanceAllTime: Number(parsed.totalDistanceAllTime) || 0,
+            totalTimeAllTime: Number(parsed.totalTimeAllTime) || 0,
+            totalGamesPlayed: Number(parsed.totalGamesPlayed) || 0,
+            totalPushesAllTime: Number(parsed.totalPushesAllTime) || 0,
+            cairns: Array.isArray(parsed.cairns) ? parsed.cairns : []
+          };
+        }
+      }
     } catch {
       // fallback
     }
@@ -132,6 +148,7 @@ export default function App() {
   const lastTickRef = useRef<number>(performance.now());
   const maxDistanceRef = useRef<number>(stats.maxDistance);
   const gameModeRef = useRef<GameMode>('ABSURD');
+  const pushPulseUntilRef = useRef<number>(0);
 
   // Sync refs with state
   useEffect(() => {
@@ -144,10 +161,35 @@ export default function App() {
     gameModeRef.current = gameMode;
   }, [isPushing, status, currentDistance, elapsedTime, pushCount, stats.maxDistance, gameMode]);
 
+  // Restart Handler
+  const handleRestart = useCallback(() => {
+    setStatus('IDLE');
+    statusRef.current = 'IDLE';
+    setIsPushing(false);
+    isPushingRef.current = false;
+    pushPulseUntilRef.current = 0;
+    setCurrentDistance(0);
+    distanceRef.current = 0;
+    setDescendDistance(0);
+    descendDistanceRef.current = 0;
+    setElapsedTime(0);
+    timeRef.current = 0;
+    setPushCount(0);
+    pushCountRef.current = 0;
+    graceRef.current = seasonConfig.graceWindowMs;
+    setToleranceRemainingMs(seasonConfig.graceWindowMs);
+    setLastSummary(null);
+    soundEngine.startAmbientMusic(false);
+    soundEngine.playClick();
+  }, [seasonConfig.graceWindowMs]);
+
   // Main Physics & Loop Handler
   const triggerCrash = useCallback(() => {
     statusRef.current = 'CRASHING';
     setStatus('CRASHING');
+    isPushingRef.current = false;
+    setIsPushing(false);
+    pushPulseUntilRef.current = 0;
     soundEngine.playCatastrophicRoll();
 
     const finalDistance = distanceRef.current;
@@ -209,7 +251,7 @@ export default function App() {
         setCurrentDistance(0);
         distanceRef.current = 0;
         soundEngine.startAmbientMusic(true);
-      }, 1100);
+      }, 950);
     } else {
       setTimeout(() => {
         setStatus('GAME_OVER');
@@ -217,56 +259,75 @@ export default function App() {
         setLastSummary(summary);
         setCurrentDistance(0);
         distanceRef.current = 0;
-      }, 900);
+      }, 750);
     }
   }, [lang, stats, persistStats]);
 
-  // Push Start & End Callbacks
+  // Push Start & End Callbacks (Unified for Mouse, Pointer, Touch, and Taps)
   const handlePushStart = useCallback(() => {
-    if (statusRef.current === 'CRASHING' || statusRef.current === 'GAME_OVER') return;
+    if (statusRef.current === 'CRASHING') return;
 
     // Start ambient score upon player interaction if enabled
     if (soundEngine.musicEnabled && !soundEngine.isMuted) {
       soundEngine.startAmbientMusic(statusRef.current === 'DESCENDING');
     }
 
-    if (!isPushingRef.current) {
-      isPushingRef.current = true;
-      setIsPushing(true);
-
-      if (statusRef.current === 'DESCENDING') {
-        // Step downward
-        soundEngine.playFootstep(false);
-        return;
-      }
-
-      pushCountRef.current += 1;
-      setPushCount((c) => c + 1);
-
-      if (statusRef.current === 'IDLE' || statusRef.current === 'SLIPPING') {
-        statusRef.current = 'PUSHING';
-        setStatus('PUSHING');
-        graceRef.current = TOLERANCE_WINDOW_MS;
-        setToleranceRemainingMs(TOLERANCE_WINDOW_MS);
-      }
+    if (statusRef.current === 'GAME_OVER') {
+      handleRestart();
+      return;
     }
-  }, []);
+
+    if (statusRef.current === 'DESCENDING') {
+      // Step briskly downward on tap/hold
+      soundEngine.playFootstep(false);
+      descendDistanceRef.current = Math.max(0, descendDistanceRef.current - 1.5);
+      setDescendDistance(descendDistanceRef.current);
+      if (descendDistanceRef.current <= 0.1) {
+        setStatus('GAME_OVER');
+        statusRef.current = 'GAME_OVER';
+        soundEngine.startAmbientMusic(false);
+      }
+      return;
+    }
+
+    // Pushing / Starting / Slipping:
+    isPushingRef.current = true;
+    setIsPushing(true);
+
+    if (statusRef.current === 'IDLE' || statusRef.current === 'SLIPPING') {
+      statusRef.current = 'PUSHING';
+      setStatus('PUSHING');
+    }
+
+    // Immediate tap impulse so every single tap/click produces instant kinetic motion!
+    const impulse = 0.55 * seasonConfig.pushSpeedMod;
+    distanceRef.current += impulse;
+    setCurrentDistance(distanceRef.current);
+
+    pushCountRef.current += 1;
+    setPushCount(pushCountRef.current);
+
+    // Refill tolerance window
+    graceRef.current = Math.min(seasonConfig.graceWindowMs, Math.max(graceRef.current, 0) + 450);
+    setToleranceRemainingMs(graceRef.current);
+
+    // Keep visual push stride active for at least 260ms so quick taps show full step motion
+    pushPulseUntilRef.current = performance.now() + 260;
+
+    soundEngine.playPushScrape(0.85);
+    soundEngine.playFootstep(true);
+  }, [seasonConfig, handleRestart]);
 
   const handlePushEnd = useCallback(() => {
-    if (isPushingRef.current) {
-      isPushingRef.current = false;
+    isPushingRef.current = false;
+    if (performance.now() >= pushPulseUntilRef.current) {
       setIsPushing(false);
     }
   }, []);
 
   const handleSkipDescent = useCallback(() => {
-    setStatus('GAME_OVER');
-    statusRef.current = 'GAME_OVER';
-    setDescendDistance(0);
-    descendDistanceRef.current = 0;
-    soundEngine.startAmbientMusic(false);
-    soundEngine.playClick();
-  }, []);
+    handleRestart();
+  }, [handleRestart]);
 
   // Keyboard Spacebar Listener (with strict preventDefault to avoid page scroll)
   useEffect(() => {
@@ -313,7 +374,9 @@ export default function App() {
         timeRef.current += dt;
         setElapsedTime(timeRef.current);
 
-        if (isPushingRef.current) {
+        const isActivelyPushing = isPushingRef.current || performance.now() < pushPulseUntilRef.current;
+
+        if (isActivelyPushing) {
           const speed = 4.2 * seasonConfig.pushSpeedMod;
           distanceRef.current += speed * dt;
           setCurrentDistance(distanceRef.current);
@@ -358,7 +421,8 @@ export default function App() {
         }
       } else if (statusRef.current === 'DESCENDING') {
         // Sisyphus walks down the mountain in contemplation
-        const descendSpeed = isPushingRef.current ? 16 : 5.2;
+        const isActivelyStepping = isPushingRef.current || performance.now() < pushPulseUntilRef.current;
+        const descendSpeed = isActivelyStepping ? 16 : 5.2;
         descendDistanceRef.current = Math.max(0, descendDistanceRef.current - descendSpeed * dt);
         setDescendDistance(descendDistanceRef.current);
 
@@ -378,27 +442,6 @@ export default function App() {
 
     return () => cancelAnimationFrame(animId);
   }, [triggerCrash, seasonConfig]);
-
-  // Restart Handler
-  const handleRestart = () => {
-    setStatus('IDLE');
-    statusRef.current = 'IDLE';
-    setIsPushing(false);
-    isPushingRef.current = false;
-    setCurrentDistance(0);
-    distanceRef.current = 0;
-    setDescendDistance(0);
-    descendDistanceRef.current = 0;
-    setElapsedTime(0);
-    timeRef.current = 0;
-    setPushCount(0);
-    pushCountRef.current = 0;
-    graceRef.current = seasonConfig.graceWindowMs;
-    setToleranceRemainingMs(seasonConfig.graceWindowMs);
-    setLastSummary(null);
-    soundEngine.startAmbientMusic(false);
-    soundEngine.playClick();
-  };
 
   const toleranceRatio = Math.max(0, Math.min(1, toleranceRemainingMs / seasonConfig.graceWindowMs));
 
