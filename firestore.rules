@@ -2,8 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
     function isValidId(docId) {
       return docId is string && docId.size() > 0 && docId.size() <= 64 && docId.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    match /test/{docId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     match /leaderboard/{runId} {

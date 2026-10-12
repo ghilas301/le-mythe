@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Translations } from '../services/i18n';
-import { DollarSign, Calculator, Layers, ShieldAlert, ArrowRight, BarChart3 } from 'lucide-react';
+import { DollarSign, Calculator, Layers, ShieldAlert, ArrowRight, BarChart3, Settings, Sparkles } from 'lucide-react';
+import { AdsterraConfigModal } from './AdsterraConfigModal';
 
 interface MonetizationSectionProps {
   t: Translations;
@@ -12,6 +13,7 @@ export const MonetizationSection: React.FC<MonetizationSectionProps> = ({ t }) =
   const [runsPerSession, setRunsPerSession] = useState<number>(3);
   const [cpm, setCpm] = useState<number>(0.80);
   const [fillRate, setFillRate] = useState<number>(100);
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   // Calculations:
   // Total potential ad views = dailySessions * 1 (1 monetized run view per session at end, or runsPerSession)
@@ -34,6 +36,15 @@ export const MonetizationSection: React.FC<MonetizationSectionProps> = ({ t }) =
             {t.monetizationSubtitle}
           </p>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsConfigOpen(true)}
+          className="self-start md:self-auto px-4 py-2 rounded-xl bg-[#25201A] hover:bg-[#332C23] border border-[#443A2D] text-xs font-cinzel font-bold text-amber-300 hover:text-amber-200 transition-colors flex items-center gap-2 cursor-pointer shadow-sm"
+        >
+          <Settings className="w-4 h-4 text-amber-400" />
+          <span>Configurer Tags Adsterra</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-6">
@@ -174,6 +185,11 @@ export const MonetizationSection: React.FC<MonetizationSectionProps> = ({ t }) =
           </div>
         </div>
       </div>
+
+      <AdsterraConfigModal
+        isOpen={isConfigOpen}
+        onClose={() => setIsConfigOpen(false)}
+      />
     </section>
   );
 };

@@ -4,6 +4,7 @@ import { Translations } from '../services/i18n';
 import { RotateCcw, Share2, Award, Check, ExternalLink, Trophy, ShieldCheck } from 'lucide-react';
 import { TIMED_EVENTS } from '../services/events';
 import { triggerRestartAds, triggerGameOverAds } from '../services/adManager';
+import { AdsterraBanner } from './AdsterraBanner';
 
 interface GameOverModalProps {
   summary: RunSummary;
@@ -133,33 +134,8 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           </div>
         </div>
 
-        {/* Dedicated, Strictly Dimensioned Adsterra / Sponsored Slot (CLS <= 0.1) */}
-        <div className="flex flex-col gap-1 w-full">
-          <div className="flex items-center justify-between text-[10px] text-[#786E60] uppercase tracking-wider font-mono px-1">
-            <span>{t.adNotice}</span>
-            <span className="text-[9px]">300×250 Banner Slot</span>
-          </div>
-
-          <div className="w-full h-[140px] rounded-lg bg-[#0F0E0C] border border-dashed border-[#3D352A] flex flex-col items-center justify-center p-3 text-center relative overflow-hidden group">
-            <div className="flex flex-col items-center gap-1.5 z-10 max-w-xs">
-              <span className="text-xs font-cinzel tracking-widest text-[#B5A997] font-semibold">
-                HERACLES COURIER · ATHENS
-              </span>
-              <p className="text-[11px] text-[#857B6D] leading-snug">
-                “Heavy load transport since 450 BCE. We do not drop your cargo. Ever.”
-              </p>
-              <span className="inline-flex items-center gap-1 text-[10px] text-amber-500/90 font-mono underline">
-                Simulated Partner Network <ExternalLink className="w-3 h-3" />
-              </span>
-            </div>
-            <div className="absolute bottom-1 right-2 text-[9px] text-[#4A4338] font-mono">
-              Adsterra Compliant Display
-            </div>
-          </div>
-          <p className="text-[10px] text-[#635B4F] text-center italic">
-            {t.adDisclaimer}
-          </p>
-        </div>
+        {/* Adsterra 300x250 Banner Slot */}
+        <AdsterraBanner />
 
         {/* Buttons Row */}
         <div className="flex flex-col sm:flex-row items-center gap-2.5 mt-1">
